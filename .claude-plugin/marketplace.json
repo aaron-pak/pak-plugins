@@ -44,6 +44,12 @@
       "description": "Explain a topic to a complete beginner as an HTML artifact with big pictures and few words."
     },
     {
+      "name": "evals",
+      "source": "./plugins/evals",
+      "strict": false,
+      "description": "Build, run and hillclimb evals for anything that shapes what an agent does: a plugin, skill, MCP server, instruction file, system prompt or model. One command says what a suite needs next, and results are kept, named and reused, so a change is measured against a baseline without running the baseline again. Its own runner works under Claude Code or Codex, with Opus judges, cases cut from real sessions and paired comparisons."
+    },
+    {
       "name": "frontend-skill",
       "source": "./plugins/frontend-skill",
       "strict": false,
