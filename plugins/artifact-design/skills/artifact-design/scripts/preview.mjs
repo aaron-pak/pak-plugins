@@ -11,9 +11,9 @@
 // Claude Code 2.1.300's preview: page and element overflow, SVG labels clipped by their
 // viewport, Mermaid blocks that fail, colors set only inside a theme block, identical light and
 // dark renders, loads the preview leaves out, dialogs, navigation, and console errors, including
-// a script that fails to parse. Two in-page checks go beyond Claude Code's ArtifactCheck: running
-// text that a grid or flex parent splits into separate rows or columns, and SVG text drawn too
-// small to read at phone width. It loads the page, Google Fonts and scripts from the five CDNs the
+// a script that fails to parse. Three in-page checks go beyond Claude Code's ArtifactCheck: running
+// text that a grid or flex parent splits into separate rows or columns, SVG text drawn too
+// small to read at phone width, and an accent on one side of a box that bends round a rounded corner. It loads the page, Google Fonts and scripts from the five CDNs the
 // page contract allows, as the published page does (Claude Code's preview blocks those scripts);
 // the page's own files are listed in a note. It
 // prints the same report, with a JPEG capture of each render, sized and compressed as Claude
@@ -147,7 +147,7 @@ const THEMES = themesGiven.length ? themesGiven : ["light", "dark"];
 const viewportHeight = (width) => (width < 600 ? 844 : 900);
 const MAX_CAPTURE = 1568; // captures stop at this height; taller pages are noted
 const SETTLE_MS = 2000;
-const MAX_LISTED = 6; // overflowing elements, clipped SVG labels, split texts and small-text SVGs listed per render
+const MAX_LISTED = 6; // overflowing elements, clipped SVG labels, split texts, small-text SVGs and curved accents listed per render
 const SMALL_SVG_TEXT = 7.5; // px: an SVG most of whose labels draw smaller than this at phone width is reported
 const MAX_ISSUES = 24; // distinct findings listed; the rest are counted
 const MAX_DROPPED = 100;
@@ -625,11 +625,123 @@ async function probe({ SETTLE, MAXO, MAXS, TINY }) {
       } else tinyMore++;
     }
   }
+  // Not one of Claude Code's checks: an accent on one side of a box that bends round a rounded corner,
+  // such as a card with rounded corners and a coloured left border. It knows four ways the look gets
+  // made: a border on one side, an inset shadow pushed to one side, a thin bar (an element or a
+  // ::before/::after) at the edge of a box that clips it, and a background gradient with a hard stop
+  // a few pixels in. A full border, a tab's underline, a key cap, a meter's fill and a spinner pass.
+  function sideAccents(root, pathOf) {
+      var out = [], THIN = 8;
+    var CORNERS = { left: ['tl', 'bl'], right: ['tr', 'br'], top: ['tl', 'tr'], bottom: ['bl', 'br'] };
+    var NEIGHBOUR = { left: { tl: 'top', bl: 'bottom' }, right: { tr: 'top', br: 'bottom' }, top: { tl: 'left', tr: 'right' }, bottom: { bl: 'left', br: 'right' } };
+    function px(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
+    function alpha(c) {
+      if (!c || c === 'transparent') return 0;
+      var m = /^rgba?\(\s*[\d.]+[\s,]+[\d.]+[\s,]+[\d.]+(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/.exec(c);
+      var a = m ? m[1] : (/\/\s*([\d.]+%?)\s*\)$/.exec(c) || [])[1];
+      return a == null ? 1 : (a.slice(-1) === '%' ? parseFloat(a) / 100 : parseFloat(a));
+    }
+    function radii(cs, w, h) {
+      function one(v) { var p = String(v).split(' '), a = p[0], b = p[1] || p[0]; function r(x, of) { return x.slice(-1) === '%' ? parseFloat(x) / 100 * of : px(x); } return Math.min(r(a, w), r(b, h), w / 2, h / 2); }
+      return { tl: one(cs.borderTopLeftRadius), tr: one(cs.borderTopRightRadius), br: one(cs.borderBottomRightRadius), bl: one(cs.borderBottomLeftRadius) };
+    }
+    function name(el, pseudo) { return pathOf(el) + (pseudo || ''); }
+    function shown(cs) { return cs.display !== 'none' && cs.visibility !== 'hidden' && px(cs.opacity === '' ? 1 : cs.opacity) > 0.02; }
+    function splitTop(s) { var r = [], d = 0, cur = ''; for (var i = 0; i < s.length; i++) { var ch = s[i]; if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && d === 0) { r.push(cur.trim()); cur = ''; } else cur += ch; } if (cur.trim()) r.push(cur.trim()); return r; }
+    function add(el, pseudo, side, how, r) { out.push({ el: name(el, pseudo), side: side, how: how, radius: Math.round(r * 10) / 10 }); }
+    function rounded(rad, side) { var c = CORNERS[side]; return Math.max(rad[c[0]], rad[c[1]]); }
+
+    // 1 and 2 and 4: what a box paints on itself
+    function box(el, pseudo, cs, w, h) {
+      if (w < 2 || h < 2) return;
+      var rad = radii(cs, w, h); if (Math.max(rad.tl, rad.tr, rad.br, rad.bl) <= 0.5) return;
+      var b = {}; ['top', 'right', 'bottom', 'left'].forEach(function (s) { var S = s[0].toUpperCase() + s.slice(1), st = cs['border' + S + 'Style'], c = cs['border' + S + 'Color']; b[s] = { w: st === 'none' || st === 'hidden' ? 0 : px(cs['border' + S + 'Width']), c: c, on: false }; b[s].on = b[s].w >= 0.5 && alpha(c) > 0.05; });
+      // a ring with one coloured arc is a spinner, not a card
+      var ring = b.top.on && b.right.on && b.bottom.on && b.left.on && Math.min(rad.tl, rad.tr, rad.br, rad.bl) >= Math.min(w, h) * 0.45;
+      if (!ring) Object.keys(CORNERS).forEach(function (side) {
+        if (!b[side].on) return;
+        var worst = 0; CORNERS[side].forEach(function (corner) { var n = b[NEIGHBOUR[side][corner]]; if (rad[corner] > 0.5 && (!n.on || (n.c !== b[side].c && b[side].w > n.w + 0.25))) worst = Math.max(worst, rad[corner]); });
+        if (worst) add(el, pseudo, side, 'border', worst);
+      });
+      if (cs.boxShadow && cs.boxShadow !== 'none') splitTop(cs.boxShadow).forEach(function (sh) {
+        if (!/\binset\b/.test(sh)) return;
+        var col = (/(rgba?\([^)]*\)|color\([^)]*\)|ok(?:lch|lab)\([^)]*\)|#[0-9a-f]+)/i.exec(sh) || [])[1] || '', nums = sh.replace(col, '').match(/-?[\d.]+px/g) || [];
+        var x = px(nums[0]), y = px(nums[1]), blur = px(nums[2]), spread = px(nums[3]);
+        if (alpha(col) <= 0.05 || blur > 1 || Math.abs(spread) > 0.5) return;
+        var side = Math.abs(x) >= 1 && y === 0 ? (x > 0 ? 'left' : 'right') : Math.abs(y) >= 1 && x === 0 ? (y > 0 ? 'top' : 'bottom') : null;
+        if (side && Math.max(Math.abs(x), Math.abs(y)) <= THIN * 2 && rounded(rad, side) > 0.5) add(el, pseudo, side, 'inset shadow', rounded(rad, side));
+      });
+      var bg = cs.backgroundImage || '';
+      if (bg.indexOf('linear-gradient(') === 0 && (cs.backgroundSize === 'auto' || cs.backgroundSize === 'auto auto' || !cs.backgroundSize)) {
+        var inner = splitTop(bg)[0].replace(/^linear-gradient\(/, '').replace(/\)$/, ''), parts = splitTop(inner), dir = 'to bottom';
+        if (/^(to |-?[\d.]+(deg|turn|rad))/.test(parts[0])) dir = parts.shift();
+        var side2 = { 'to right': 'left', '90deg': 'left', 'to left': 'right', '270deg': 'right', 'to bottom': 'top', '180deg': 'top', 'to top': 'bottom', '0deg': 'bottom' }[dir];
+        if (side2 && parts.length >= 2) {
+          var p0 = parts[0].match(/-?[\d.]+px/g), p1 = parts[1].match(/-?[\d.]+px/g), c0 = parts[0].replace(/\s+-?[\d.]+(px|%)/g, '').trim(), c1 = parts[1].replace(/\s+-?[\d.]+(px|%)/g, '').trim();
+          var end = p0 ? px(p0[p0.length - 1]) : null, start = p1 ? px(p1[0]) : null;
+          if (end !== null && start !== null && end >= 1 && end <= THIN && Math.abs(start - end) <= 0.5 && c0 !== c1 && alpha(c0) > 0.05 && rounded(rad, side2) > 0.5) add(el, pseudo, side2, 'gradient', rounded(rad, side2));
+        }
+      }
+    }
+
+    // 3: a thin bar at the edge of a rounded box. bar and host are {l, t, r, b} in page pixels
+    function clips(cs) { return (cs.overflowX && cs.overflowX !== 'visible') || (cs.overflowY && cs.overflowY !== 'visible') || /paint|strict|content/.test(cs.contain || '') || (cs.clipPath && cs.clipPath !== 'none'); }
+    function bar(el, pseudo, cs, R, host, hostFirst) {
+      var w = R.r - R.l, h = R.b - R.t; if (alpha(cs.backgroundColor) <= 0.05) return;
+      var vertical = w <= THIN && h >= Math.max(16, w * 3), flat = h <= THIN && w >= Math.max(16, h * 3); if (!vertical && !flat || w < 1 || h < 1) return;
+      var own = radii(cs, w, h);
+      for (var a = hostFirst ? host : host.parentElement, depth = 0; a && a.nodeType === 1 && depth < 4; a = a.parentElement, depth++) {
+        var A = a.getBoundingClientRect(), acs = getComputedStyle(a), aw = A.width, ah = A.height; if (aw < 2 || ah < 2) continue;
+        var rad = radii(acs, aw, ah), sides = vertical ? ['left', 'right'] : ['top', 'bottom'];
+        for (var i = 0; i < sides.length; i++) {
+          var side = sides[i];
+          var flush = side === 'left' ? Math.abs(R.l - A.left) <= 1.5 : side === 'right' ? Math.abs(R.r - A.right) <= 1.5 : side === 'top' ? Math.abs(R.t - A.top) <= 1.5 : Math.abs(R.b - A.bottom) <= 1.5;
+          if (!flush) continue;
+          // a sliver along most of that edge, not a fill of the whole box (a meter's fill) and not a short mark (a tab's underline)
+          var along = vertical ? h / ah : w / aw, across = vertical ? w / aw : h / ah; if (along < 0.6 || across > 0.2) continue;
+          var c = CORNERS[side], near = vertical ? [R.t - A.top, A.bottom - R.b] : [R.l - A.left, A.right - R.r], worst = 0;
+          for (var k = 0; k < 2; k++) {
+            var hostR = rad[c[k]], inZone = hostR > 0.5 && near[k] < hostR - 0.5;
+            var outer = own[c[k]], innerC = { tl: 'tr', bl: 'br', tr: 'tl', br: 'bl' }, innerV = vertical ? own[innerC[c[k]]] : own[{ tl: 'bl', tr: 'br', bl: 'tl', br: 'tr' }[c[k]]];
+            if (inZone && clips(acs)) worst = Math.max(worst, hostR);          // the box cuts the bar to its corner
+            else if (outer > 0.5 && outer > innerV + 0.5) worst = Math.max(worst, outer); // the bar is shaped to a corner itself
+          }
+          if (worst) { add(el, pseudo, side, pseudo ? 'pseudo-element bar' : 'bar', worst); return; }
+        }
+      }
+    }
+
+    var all = root.querySelectorAll('*');
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i]; if (/^(script|style|head|meta|link|title|svg|path|g|defs|template)$/i.test(el.tagName) || (el.closest && el.closest('svg'))) continue;
+      var cs = getComputedStyle(el); if (!shown(cs)) continue;
+      var R = el.getBoundingClientRect(); if (R.width < 1 || R.height < 1) continue;
+      box(el, '', cs, R.width, R.height);
+      bar(el, '', cs, { l: R.left, t: R.top, r: R.right, b: R.bottom }, el, false);
+      ['::before', '::after'].forEach(function (ps) {
+        var pc = getComputedStyle(el, ps); if (!pc || pc.content === 'none' || pc.content === 'normal' || !shown(pc)) return;
+        var pw = px(pc.width) + px(pc.paddingLeft) + px(pc.paddingRight) + px(pc.borderLeftWidth) + px(pc.borderRightWidth), ph = px(pc.height) + px(pc.paddingTop) + px(pc.paddingBottom) + px(pc.borderTopWidth) + px(pc.borderBottomWidth);
+        if (pc.boxSizing === 'border-box') { pw = px(pc.width); ph = px(pc.height); }
+        box(el, ps, pc, pw, ph);
+        if ((pc.position === 'absolute') && cs.position !== 'static' && pc.left !== 'auto' && pc.top !== 'auto') {
+          var l = R.left + px(cs.borderLeftWidth) + px(pc.left) + px(pc.marginLeft), t = R.top + px(cs.borderTopWidth) + px(pc.top) + px(pc.marginTop);
+          bar(el, ps, pc, { l: l, t: t, r: l + pw, b: t + ph }, el, true);
+        }
+      });
+    }
+    // one entry per element and side
+    var seen = {}; return out.filter(function (f) { var k = f.el + '|' + f.side; if (seen[k]) return false; seen[k] = 1; return true; });
+  }
+  let accents = [];
+  try { accents = sideAccents(document, pathOf); } catch (e) {}
+  const accentMore = Math.max(0, accents.length - MAXO);
+  accents = accents.slice(0, MAXO);
   return {
     vw: de.clientWidth,
     sw: de.scrollWidth,
     sh: Math.max(de.scrollHeight, body ? body.scrollHeight : 0),
     overflows, overflowMore, svgClips, svgClipMore, splits, splitMore, tinySvgs, tinyMore,
+    accents, accentMore,
     mermaid: { total: pres.length, runtime: hasRuntime, failed },
     csp: (window.__claudePreviewCsp || []).slice(0, 64),
   };
@@ -654,6 +766,10 @@ function measuredFindings(m) {
     out.push(["svg_small_text", `${t.count} of ${t.of} labels in ${clip(t.path, 60)} draw under ${SMALL_SVG_TEXT}px (smallest ${t.min.toFixed(1)}px, "${clip(t.text, 24)}"${scaled}), too small to read on a phone — enlarge the text for narrow screens or draw the SVG at the width it is shown`]);
   }
   if (m.tinyMore > 0) out.push(["svg_small_text", `${m.tinyMore} more SVGs draw most of their text under ${SMALL_SVG_TEXT}px`]);
+  for (const a of m.accents) {
+    out.push(["curved_accent", `the ${a.side} accent on ${clip(a.el, 70)} bends round its rounded corner (${a.how}, ${a.radius}px radius) — keep a side accent a straight bar: make the two corners it touches square, or stop the bar short of them`]);
+  }
+  if (m.accentMore > 0) out.push(["curved_accent", `${m.accentMore} more side accents bend round a rounded corner`]);
   if (m.mermaid.total > 0 && !m.mermaid.runtime) {
     out.push(["mermaid", `${m.mermaid.total} <pre class="mermaid"> ${plural(m.mermaid.total, "block")} but the diagram runtime did not load, so ${plural(m.mermaid.total, "it shows", "they show")} as source`]);
   }
