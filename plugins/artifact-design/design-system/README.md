@@ -105,6 +105,7 @@ No icon font and no emoji. The drawings are the icons, a fixed set in one hand (
 
 - Do: one clay thing per view, drawings on grounds below the hero and not only at the top, one or two oat or sage bands on a page that is read top to bottom, a visual in every section, headings that say the point, real numbers with their comparison, a note with an arrow at the thing that matters, a different hero and section shape where the content allows.
 - Do: show a process as a flow or steps, a change over time as a line, a ranking as horizontal bars, a part of a whole as a stacked bar, a single number as a big number with its source, a day as a schedule, a trade-off as a two by two.
+- Do: draw a diagram with the system's own parts: a Flow for a process, a Tree for a decision, a Map for the parts of a system and what passes between them. Leave out a diagram library such as Mermaid, whose boxes come in a look of their own.
 - Don't: gradients, glossy shadows, glass, neon, cold greys, pure white or black grounds (a dark slide is the one exception), a second strong colour, a colour per card.
 - Don't: a page that is the same quiet ivory from the second screen to the last, a band on every section, a hand mark on every heading, sage or oat as anything but a ground.
 - Don't: stock icons, emoji, mascots, hands as characters, rows of identical cards, pills on everything, a legend where a direct label would do.

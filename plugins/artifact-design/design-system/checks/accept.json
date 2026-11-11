@@ -31,5 +31,27 @@
       "wider": 48,
       "taller": 48
     }
+  ],
+  "contrast": [
+    {
+      "on": ".sk-btn",
+      "least": 4
+    },
+    {
+      "on": ".sk-label",
+      "least": 3.8
+    },
+    {
+      "on": "time",
+      "least": 4.3
+    },
+    {
+      "on": ".sk-tl-ps, .sk-tl-note",
+      "least": 3.4
+    },
+    {
+      "on": ".sk-tasks li:has(:checked) .sk-pill",
+      "least": 1.8
+    }
   ]
 }

@@ -22,16 +22,19 @@ if(c&&c!=='transparent'&&c!=='rgba(0, 0, 0, 0)')return c;
 }
 return fallback;
 }
+function faces(font){
+try{return document.fonts.check('16px '+font)&&document.fonts.check('bold 16px '+font)?'in':'out';}catch(e){return 'in';}
+}
 function render(){
 var theme=root.getAttribute('data-theme');
 var dark=theme==='dark'||(!!(mq&&mq.matches)&&theme!=='light');
 var pal=dark?CFG.palettes.dark:CFG.palettes.light;
 var bg=pageBg(pal.bg);
-var key=(dark?'d':'l')+'|'+bg;
+var font=getComputedStyle(document.body).fontFamily||'sans-serif';
+var key=(dark?'d':'l')+'|'+bg+'|'+font+'|'+faces(font);
 if(key===lastKey)return;
 lastKey=key;
 var gen=++renderGen;
-var font=getComputedStyle(document.body).fontFamily||'sans-serif';
 var nat={useMaxWidth:false};
 mermaid.initialize({
 startOnLoad:false,securityLevel:'strict',theme:'base',
@@ -68,7 +71,15 @@ it.pre.style.display='';
 });
 });
 }
-render();
+var fonts=document.fonts;
+var first=false;
+function begin(){if(first)return;first=true;render();}
+if(fonts&&fonts.load){
+var font0=getComputedStyle(document.body).fontFamily||'sans-serif';
+Promise.all([fonts.load('16px '+font0),fonts.load('bold 16px '+font0)]).then(begin,begin);
+setTimeout(begin,1200);
+if(fonts.addEventListener)fonts.addEventListener('loadingdone',function(){if(first)render();});
+}else begin();
 if(mq&&mq.addEventListener)mq.addEventListener('change',render);
 if(typeof MutationObserver!=='undefined')new MutationObserver(render).observe(root,{attributes:true,attributeFilter:['data-theme']});
 })();</script>

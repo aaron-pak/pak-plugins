@@ -25012,6 +25012,7 @@ class ServerConfig extends Service()("artifact-design/ServerConfig") {
       openPages: (yield* String6("ARTIFACT_OPEN").pipe(withDefault3("1"))) !== "0",
       opener,
       previewSwitch: (yield* String6("ARTIFACT_PREVIEW").pipe(withDefault3("1"))) !== "0",
+      images: (yield* String6("ARTIFACT_IMAGES").pipe(withDefault3("1"))) !== "0",
       sessionId: (yield* env("CLAUDE_CODE_SESSION_ID")) || null,
       skillDir,
       designSystem,
@@ -25550,16 +25551,19 @@ if(c&&c!=='transparent'&&c!=='rgba(0, 0, 0, 0)')return c;
 }
 return fallback;
 }
+function faces(font){
+try{return document.fonts.check('16px '+font)&&document.fonts.check('bold 16px '+font)?'in':'out';}catch(e){return 'in';}
+}
 function render(){
 var theme=root.getAttribute('data-theme');
 var dark=theme==='dark'||(!!(mq&&mq.matches)&&theme!=='light');
 var pal=dark?CFG.palettes.dark:CFG.palettes.light;
 var bg=pageBg(pal.bg);
-var key=(dark?'d':'l')+'|'+bg;
+var font=getComputedStyle(document.body).fontFamily||'sans-serif';
+var key=(dark?'d':'l')+'|'+bg+'|'+font+'|'+faces(font);
 if(key===lastKey)return;
 lastKey=key;
 var gen=++renderGen;
-var font=getComputedStyle(document.body).fontFamily||'sans-serif';
 var nat={useMaxWidth:false};
 mermaid.initialize({
 startOnLoad:false,securityLevel:'strict',theme:'base',
@@ -25596,7 +25600,15 @@ it.pre.style.display='';
 });
 });
 }
-render();
+var fonts=document.fonts;
+var first=false;
+function begin(){if(first)return;first=true;render();}
+if(fonts&&fonts.load){
+var font0=getComputedStyle(document.body).fontFamily||'sans-serif';
+Promise.all([fonts.load('16px '+font0),fonts.load('bold 16px '+font0)]).then(begin,begin);
+setTimeout(begin,1200);
+if(fonts.addEventListener)fonts.addEventListener('loadingdone',function(){if(first)render();});
+}else begin();
 if(mq&&mq.addEventListener)mq.addEventListener('change',render);
 if(typeof MutationObserver!=='undefined')new MutationObserver(render).observe(root,{attributes:true,attributeFilter:['data-theme']});
 })();</script>
@@ -25853,7 +25865,12 @@ class Skill2 extends Service()("artifact-design/Skill") {
     const { skillDir } = yield* ServerConfig;
     const scripts = paths.join(skillDir, "scripts");
     const read = (name) => fs.readFileString(paths.join(skillDir, name)).pipe(map6((text) => text.trim()), mapError3((error) => new ActionError({ message: messageOf(error) })));
-    return Skill2.of({ scripts, contract: read("contract.md"), design: read("design.md") });
+    return Skill2.of({
+      scripts,
+      contract: read("contract.md"),
+      craft: read("craft.md"),
+      design: read("design.md")
+    });
   }));
 }
 
@@ -26013,6 +26030,8 @@ class Preview extends Service()("artifact-design/Preview") {
       const args = [script, source, "--wrapped", wrapped, "--json", "--out", out];
       if (system !== null)
         args.push("--system", system);
+      if (!config.images)
+        args.push("--no-images");
       if (Array.isArray(widths))
         args.push("--widths", widths.filter((w) => typeof w === "number").join(","));
       if (Array.isArray(themes))
@@ -26327,9 +26346,9 @@ function decodeUtf8(bytes) {
 // plugins/artifact-design/src/text/description.md
 var description_default = `Publishes an HTML file as an Artifact: a web page saved on this machine in {store}{opened}, at a link that stays the same when the page is updated.
 
-Use it when a page would be clearer than terminal text, or when the person will use the page rather than only read it: a report, explainer, plan, comparison, dashboard, tool, mockup, deck, app or game, and whenever they ask for an artifact or a page. Finished work meant for other people, such as a write-up for a team or the case for a decision, is published even when the request is phrased as a question, and you give the person the link. You may publish without being asked, because a published page stays on this machine. Don't publish when the person wants the file itself, only your own quick verdict, or advice they will act on right away in their code: answer in the terminal, and at most offer the page in one line.
+Use it without being asked whenever a page shows the answer better than terminal text: an explanation of how something works, a walkthrough, a comparison, a plan, a report or other write-up, and anything that needs a diagram, a chart or more than about a screen of text. A terminal can't draw, so never answer with a diagram made of text characters. Use it too for what the person will use (a dashboard, tool, mockup, deck, app or game), and whenever they ask for an artifact or a page. Work meant for other people is published even when the request is phrased as a question: give the person the link, and the text too when it is short. You may publish without asking, since a published page stays on this machine. Answer in the terminal instead when a few sentences, a verdict, a command, a change to their code or advice they will act on right away is the whole answer, or when the person wants the file itself; at most offer the page in one line.
 
-For a new page, your first call is \`action: "quickstart"\`, before loading a skill or writing a file, once per new page. It returns the page rules and the design system to build the page with, which this description leaves out. Then write the page to a file and publish it in the same message.
+For a new page, your first call is \`action: "quickstart"\`, before loading a skill or writing a file. It returns the page rules and the design system to build the page with. Then write the page to a file and publish it in the same message.
 
 To change a page made in this session, edit its file and publish the same \`file_path\` again: the link stays. To change a page from another file or an earlier session, find it with \`list\`, \`read\` it, and publish with its \`url\`.
 
@@ -26338,8 +26357,8 @@ Read the whole of any file you did not write before publishing it. Never publish
 
 // plugins/artifact-design/src/tool.ts
 var INSTRUCTIONS = "This server's Artifact tool publishes HTML pages (reports, explainers, plans, dashboards, tools, " + 'mockups, decks) as local files; before writing a new one, call it with action "quickstart".';
-var CHECK_DESCRIPTION = "Check a page before publishing it with the `Artifact` tool.\n\n" + '**Preview**: `action: "preview"` with a `file_path` renders that one page file locally the way publish wraps it, ' + "in light and dark themes at desktop and phone widths, and returns the screenshots with a mechanical checklist of " + "layout and load problems, so you can see the page and fix what they show before publishing. A page that uses the " + "design system installed here is rendered with it and also put through that system's own checks. It publishes " + "nothing and needs no artifact link.";
-var PREVIEW_ACTION = "'preview' renders a local page file before you publish it — pass `file_path` (one .html file; files " + "published beside it are not loaded), optionally `widths` (viewport widths in px, default 1280 and 390) and " + "`themes` ('light', 'dark', default both) — and returns a screenshot per width and theme (each shows at most " + "the top 1568 px of the page) plus a checklist of layout and load problems (horizontal overflow, also at the " + "widths in between, clipped content, " + "text split by a grid or flex parent, SVG text too small for a phone, a side accent that bends round a rounded " + "corner, theme-only color variables, blocked or local-only loads, diagram and console errors).";
+var checkDescription = (images) => "Check a page before publishing it with the `Artifact` tool.\n\n" + '**Preview**: `action: "preview"` with a `file_path` renders that one page file locally the way publish wraps it, ' + "in light and dark themes at desktop and phone widths, and returns " + (images ? "the screenshots" : "each render described in words (this session returns no images)") + " with a mechanical checklist of layout, legibility and load problems, so you can " + (images ? "see the page and fix what they show" : "fix what it finds") + " before publishing. A page that uses the design system installed here is rendered with it and also put through " + "that system's own checks. It publishes nothing and needs no artifact link.";
+var previewAction = (images) => "'preview' renders a local page file before you publish it — pass `file_path` (one .html file; files " + "published beside it are not loaded), optionally `widths` (viewport widths in px, default 1280 and 390) and " + "`themes` ('light', 'dark', default both) — and returns " + (images ? "a screenshot per width and theme (each shows at most the top 1568 px of the page)" : "a description in words of each width and theme (its size, colours, fonts and a map of its blocks)") + " plus a checklist of problems (horizontal overflow, also at the widths in between, clipped content, " + "text split by a grid or flex parent, SVG text too small for a phone, a side accent that bends round a rounded " + "corner, text too faint to read, text that overlaps or lies under something, controls that do nothing, " + "theme-only color variables, blocked or local-only loads, diagram and console errors).";
 var INSTEAD = {
   edits: "edit the file, then publish the same `file_path` again",
   capabilities: "a page here is static HTML",
@@ -26420,11 +26439,15 @@ function tool(setting) {
     _meta: { "anthropic/alwaysLoad": true }
   });
 }
-function checkSchema() {
+function checkSchema(images = true) {
   return {
     type: "object",
     properties: {
-      action: { type: "string", enum: ["preview"], description: `Omitting it means 'preview'. ${PREVIEW_ACTION}` },
+      action: {
+        type: "string",
+        enum: ["preview"],
+        description: `Omitting it means 'preview'. ${previewAction(images)}`
+      },
       file_path: { type: "string", description: "preview: the absolute path of the .html page file." },
       widths: {
         type: "array",
@@ -26444,11 +26467,11 @@ function checkSchema() {
     additionalProperties: false
   };
 }
-function checkTool() {
+function checkTool(images = true) {
   return new Tool({
     name: "ArtifactCheck",
-    description: CHECK_DESCRIPTION,
-    inputSchema: checkSchema(),
+    description: checkDescription(images),
+    inputSchema: checkSchema(images),
     _meta: { "anthropic/alwaysLoad": true }
   });
 }
@@ -26481,7 +26504,14 @@ function badPreviewOption(args) {
   return null;
 }
 var SYSTEM_GUIDE_ROOM = 22000;
-var LOOK = (systemChecks) => "Before publishing, look at the page once with `ArtifactCheck`. It renders the file as publishing would, at " + "desktop and phone widths in light and dark, and lists what breaks: overflow, clipped text, colours that ignore " + `the theme, blocked loads and script errors${systemChecks}. Fix what it shows in one pass of edits, then publish; ` + "look a second time only after a large fix. A page whose point is logic (dates, money, scoring) may also get one " + "run of its pure function on a sample input. None of this becomes a loop, because the person is waiting for a " + "link: no further screenshots of a page that passed and no scripts that probe the DOM. If the person later " + "reports something visibly broken, fix that, look once more and publish again.";
+var QUICKSTART_ROOM = 35000;
+var NO_SYSTEM = "No design system is installed here, so the look is yours to design.";
+var DIAGRAM_SKILL = "When the page includes a diagram, also load the `artifact-diagramming` skill before writing it.";
+var GENERAL = "General design";
+var isGeneral = (part) => plainName(part) === plainName(GENERAL);
+var CUT_SHORT = '\n\n(Cut short here to fit. `action: "guide"` lists every part of the design system and returns any of them by name.)';
+var GENERAL_LISTED = `\`parts\` also takes \`${GENERAL}\`: the design guidance for a page that leaves this design system out.`;
+var LOOK = (systemChecks, images) => "Before publishing, look at the page once with `ArtifactCheck`. It renders the file as publishing would, at " + "desktop and phone widths in light and dark, and lists what breaks: overflow, clipped text, text too faint to " + "read or lying under something, controls that do nothing, colours that ignore the theme, blocked loads and " + `script errors${systemChecks}. ` + (images ? "" : "This session returns no images, so it describes each render in words instead of showing it. ") + "Fix what it shows in one pass of edits, then publish; " + "look a second time only after a large fix. A page whose point is logic (dates, money, scoring) may also get one " + "run of its pure function on a sample input. None of this becomes a loop, because the person is waiting for a " + "link: no further screenshots of a page that passed and no scripts that probe the DOM. If the person later " + "reports something visibly broken, fix that, look once more and publish again.";
 var NO_LOOK = "This session has no page preview. If it offers another way to see the page, take one screenshot of the local " + "file and fix what it shows; otherwise publish without a look. A page whose point is logic (dates, money, " + "scoring) may get one run of its pure function on a sample input, or one syntax check of its script. Nothing " + "more, because the person is waiting for a link. If the person later reports something visibly broken, fix that " + "and publish again.";
 
 class Artifacts extends Service()("artifact-design/Artifacts") {
@@ -26500,12 +26530,12 @@ class Artifacts extends Service()("artifact-design/Artifacts") {
     const draftsRoots = [drafts.root, yield* resolvePath(drafts.root)];
     const sessionSources = yield* make32(new Map);
     const ours = (source, entry) => config.sessionId !== null && sessionsOf(entry).includes(config.sessionId) || draftsRoots.some((root) => (partsBelow(paths, root, source)?.length ?? 0) >= 2);
-    const systemGuide = (system, checked) => {
-      const { shown, left } = fitGuide(system.readme, SYSTEM_GUIDE_ROOM);
+    const systemGuide = (system, checked, room) => {
+      const { shown, left } = fitGuide(system.readme, room);
       const more = left.length > 0 || system.docs.length > 0 || system.components.length > 0;
       return `## Design system: ${system.name}
 
-` + `The ${system.name} design system is installed on this machine, and pages here are built with it unless ` + "the person asks for another look. It sets the look, the parts and the voice. The page rules above still " + `hold, and where the two differ on how a page looks, the system wins.
+` + `The ${system.name} design system is installed on this machine, and pages here are built with it unless ` + "the page takes another look (see Whose look, above). It sets the look, the parts and the voice. The page " + `rules above still hold, and where the two differ on how a page looks, the system wins.
 
 ` + `Put \`${systemTag(system.name)}\` at the top of the page, after its \`<title>\`. Publishing then adds ` + "the system's tokens, stylesheet and scripts to the page" + (checked ? ", and so does `ArtifactCheck`" : "") + ". So write only the page's own markup, with a `<style>` of your own only for what the system has no " + "part for, and leave out any `<link>` or `<script>` its guide says to load the system's files with.\n\n" + (more ? 'The rest of the system is one call away: `action: "guide"` with `parts` returns, in full, each ' + "section, document or component you name, a component with its worked example. Before writing the " + "page, ask in one call for the example closest to the page and for every part the page will use " + `that isn't given in full below. Build from those examples, not from memory.
 
@@ -26521,18 +26551,55 @@ ${shown}`;
       const checked = config.previewSwitch && (yield* preview.offered);
       const system = yield* designSystem.installed;
       const systemChecks = system !== null && system.checks.length ? `, and for a page built with ${system.name}, that system's own checks (${system.checks.join(", ")})` : "";
-      const contract = (yield* skill.contract).replaceAll("{drafts}", () => drafts.folder).replaceAll("{check}", () => checked ? LOOK(systemChecks) : NO_LOOK);
-      return "Everything for a new page follows: the rules every page keeps, how to work, and then " + (system !== null ? `the ${system.name} design system the page is built with` : "how to design it") + ". It stands in for the `artifact-design` skill, so don't load that as well.\n\n" + contract + `
+      const contract = (yield* skill.contract).replaceAll("{drafts}", () => drafts.folder).replaceAll("{check}", () => checked ? LOOK(systemChecks, config.images) : NO_LOOK);
+      const head = "Everything for a new page follows: the rules every page keeps, how to work, and then " + (system !== null ? `the ${system.name} design system the page is built with` : "how to design it") + ". It stands in for the `artifact-design` skill, so don't load that as well.\n\n" + contract + `
 
-` + (system !== null ? systemGuide(system, checked) : (yield* skill.design) + "\n\nWhen the page includes a diagram, also load the `artifact-diagramming` skill before writing it.");
+`;
+      if (system === null)
+        return `${head}${NO_SYSTEM}
+
+${yield* skill.design}
+
+${DIAGRAM_SKILL}`;
+      const craft = yield* skill.craft;
+      const build = (room2) => `${head}${craft}
+
+${systemGuide(system, checked, room2)}`;
+      let room = SYSTEM_GUIDE_ROOM;
+      let text = build(room);
+      while (text.length > QUICKSTART_ROOM && room > 0) {
+        const took = fitGuide(system.readme, room).shown.length;
+        room = Math.max(0, Math.min(room, took) - (text.length - QUICKSTART_ROOM));
+        text = build(room);
+      }
+      if (text.length <= QUICKSTART_ROOM)
+        return text;
+      const kept = text.slice(0, QUICKSTART_ROOM - CUT_SHORT.length);
+      return `${kept.slice(0, Math.max(kept.lastIndexOf(`
+`), kept.lastIndexOf(", ")))}${CUT_SHORT}`;
     });
+    const generalDesign = map6(skill.design, (design) => `# General design
+
+For a page that leaves the installed design system out: one in a look the person ` + `named, or in the look of their own product or project. It carries no design-system tag.
+
+${design}
+
+${DIAGRAM_SKILL}`);
     const guide = (args) => gen2(function* () {
       const { parts } = args;
       if (parts !== undefined && !(Array.isArray(parts) && parts.every((part) => typeof part === "string"))) {
         return yield* fail("`parts` is a list of names: guide sections, documents or components");
       }
-      const found = yield* designSystem.guide(parts ?? []);
-      return found ?? 'No design system is installed here, so there is no guide: `action: "quickstart"` returns the design ' + "guidance for a page.";
+      if ((yield* designSystem.installed) === null) {
+        return 'No design system is installed here, so there is no guide: `action: "quickstart"` returns the design ' + "guidance for a page.";
+      }
+      const general = (parts ?? []).some(isGeneral);
+      const rest = (parts ?? []).filter((part) => !isGeneral(part));
+      const found = general && !rest.length ? null : yield* designSystem.guide(rest);
+      const listed = !general && found !== null && found.includes("What `parts` can name") ? GENERAL_LISTED : null;
+      return [found, general ? yield* generalDesign : null, listed].filter((text) => text !== null).join(`
+
+`);
     });
     const publish = (args) => gen2(function* () {
       if (!args.file_path)
@@ -26807,8 +26874,9 @@ var PreviewOffered = visibility(gen2(function* () {
 var CheckTool = effectDiscard(gen2(function* () {
   const server = yield* McpServer;
   const artifacts = yield* Artifacts;
+  const config = yield* ServerConfig;
   yield* server.addTool({
-    tool: checkTool(),
+    tool: checkTool(config.images),
     annotations: empty(),
     services: yield* context2(),
     handle: (payload) => artifacts.check(argumentsOf(payload))

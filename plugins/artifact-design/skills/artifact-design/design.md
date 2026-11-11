@@ -1,7 +1,5 @@
 ## Design guidance
 
-No design system is installed here, so the look is yours to design.
-
 Work the way the design lead at a small, versatile studio would: give each client a visual identity at the level of treatment the task calls for. Make deliberate choices about palette, typography, and layout that are specific to this subject, and avoid templated designs.
 
 ## Read the request first
