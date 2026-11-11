@@ -4909,8 +4909,8 @@ var defaultLogger = /* @__PURE__ */ loggerMake(({
   if (Object.keys(annotations).length > 0) {
     message_.push(annotations);
   }
-  const console2 = fiber.getRef(ConsoleRef);
-  const log = fiber.getRef(LogToStderr) ? console2.error : console2.log;
+  const console = fiber.getRef(ConsoleRef);
+  const log = fiber.getRef(LogToStderr) ? console.error : console.log;
   log(`[${defaultDateFormat(date)}] ${logLevel.toUpperCase()} (#${fiber.id})${spanString}:`, ...message_);
 });
 var tracerLogger = /* @__PURE__ */ loggerMake(({
@@ -15217,7 +15217,6 @@ var makeUnsafe7 = (value) => {
 };
 var make32 = (value) => sync2(() => makeUnsafe7(value));
 var get7 = (self) => sync2(() => self.ref.current);
-var set5 = /* @__PURE__ */ dual(2, (self, value) => sync2(() => set2(self.ref, value)));
 var update = /* @__PURE__ */ dual(2, (self, f) => sync2(() => {
   self.ref.current = f(self.ref.current);
 }));
@@ -25003,6 +25002,8 @@ class ServerConfig extends Service()("artifact-design/ServerConfig") {
     const onPath = (name) => findFirst2(searchPath.split(platform === "win32" ? ";" : ":").filter(Boolean), (dir) => fs.exists(paths.join(dir, name)).pipe(orElseSucceed2(() => false))).pipe(map6(isSome2));
     const opener = platform === "darwin" ? "open" : platform === "win32" ? "explorer.exe" : display && (yield* onPath("xdg-open")) ? "xdg-open" : null;
     const skillDir = yield* paths.fromFileUrl(new URL("../skills/artifact-design/", import.meta.url));
+    const systemDir = (yield* env("ARTIFACT_DESIGN_SYSTEM")).trim();
+    const designSystem = ["0", "off", "none"].includes(systemDir.toLowerCase()) ? null : systemDir ? yield* resolvePath(expandUser(systemDir, home)) : yield* paths.fromFileUrl(new URL("../design-system/", import.meta.url));
     return ServerConfig.of({
       home,
       cwd: process.cwd(),
@@ -25012,8 +25013,8 @@ class ServerConfig extends Service()("artifact-design/ServerConfig") {
       opener,
       previewSwitch: (yield* String6("ARTIFACT_PREVIEW").pipe(withDefault3("1"))) !== "0",
       sessionId: (yield* env("CLAUDE_CODE_SESSION_ID")) || null,
-      codex: process.argv.slice(2).includes("--client=codex"),
       skillDir,
+      designSystem,
       path: searchPath,
       browsersPath: yield* env("PLAYWRIGHT_BROWSERS_PATH"),
       platform
@@ -25028,6 +25029,410 @@ class Browser extends Service()("artifact-design/Browser") {
     const { opener } = yield* ServerConfig;
     const open = (path) => opener === null ? succeed7(false) : spawner.spawn(make21(opener, [path], { stdin: "ignore", stdout: "ignore", stderr: "ignore" })).pipe(flatMap3((handle) => handle.unref), scoped2, as2(true), orElseSucceed2(() => false));
     return Browser.of({ available: opener !== null, open });
+  }));
+}
+
+// plugins/artifact-design/src/errors.ts
+class ActionError extends TaggedError3()("ActionError", {
+  message: String5
+}) {
+}
+
+class Refusal extends TaggedError3()("Refusal", {
+  message: String5
+}) {
+}
+var messageOf = (error) => error.cause instanceof Error ? error.cause.message : error.message;
+
+// plugins/artifact-design/src/design-system.ts
+var NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
+var HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+var COLOR_FUNCTION = /^(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\([A-Za-z0-9 .,%/+-]*\)$/;
+var ALIAS = /^\{([A-Za-z0-9][A-Za-z0-9_.-]{0,63})\}$/;
+var PLAIN_VALUE = /^[A-Za-z0-9 #%(),./+_-]+$/;
+var LENGTH = /^-?(?:\d+|\d*\.\d+)(?:px|rem|em|%)?$/;
+var FAMILY_STACK = /^[^;{}<>\\()]{1,200}$/;
+var MAX_ALIAS_DEPTH = 16;
+var isObject4 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var listOf = (value) => Array.isArray(value) ? value : [];
+var property = (name) => `--${name.replaceAll(".", "\\.")}`;
+var balanced = (text) => {
+  let depth = 0;
+  for (const ch of text) {
+    if (ch === "(")
+      depth++;
+    if (ch === ")" && --depth < 0)
+      return false;
+  }
+  return depth === 0;
+};
+var plain = (value, max) => typeof value === "number" && Number.isFinite(value) ? String(value) : typeof value === "string" && value.length <= max && PLAIN_VALUE.test(value) && balanced(value) ? value.trim() || null : null;
+var length = (value) => typeof value === "number" && Number.isFinite(value) ? `${value}px` : typeof value === "string" && LENGTH.test(value) ? value : null;
+var inTheme = (value, theme, first) => isObject4(value) ? theme === first ? value[first] ?? Object.values(value)[0] : value[theme] : theme === first ? value : undefined;
+function tokensCss(tokens) {
+  if (!isObject4(tokens))
+    return "";
+  const color = isObject4(tokens.color) ? tokens.color : {};
+  const themes = listOf(color.themes).map((theme) => isObject4(theme) && typeof theme.id === "string" ? theme.id.toLowerCase() : "").filter((id) => NAME.test(id));
+  const first = themes[0] ?? "light";
+  const all = themes.length ? themes : [first];
+  const seen = new Set;
+  const named = (family) => listOf(isObject4(family) ? family.tokens : null).flatMap((token) => {
+    if (!isObject4(token) || typeof token.name !== "string")
+      return [];
+    const name = token.name.replace(/^(?:--|\.)/, "");
+    return NAME.test(name) ? [{ name, value: token.value }] : [];
+  });
+  const colors = named(color);
+  const colorNames = new Set(colors.map((token) => token.name));
+  const resolves = (name, theme, depth) => {
+    const token = colors.find((entry) => entry.name === name);
+    const value = token && (inTheme(token.value, theme, first) ?? inTheme(token.value, first, first));
+    if (typeof value !== "string")
+      return false;
+    const alias = ALIAS.exec(value);
+    if (!alias)
+      return HEX.test(value) || COLOR_FUNCTION.test(value);
+    return depth < MAX_ALIAS_DEPTH && alias[1] !== name && colorNames.has(alias[1]) && resolves(alias[1], theme, depth + 1);
+  };
+  const colorValue = (name, value, theme) => {
+    const own = inTheme(value, theme, first);
+    if (typeof own !== "string")
+      return null;
+    const alias = ALIAS.exec(own);
+    if (alias)
+      return alias[1] !== name && resolves(alias[1], theme, 1) ? `var(${property(alias[1])})` : null;
+    return HEX.test(own) ? own.toLowerCase() : COLOR_FUNCTION.test(own) ? own : null;
+  };
+  const shadows = named(tokens.shadow);
+  const themed = (theme) => {
+    const lines = [];
+    for (const { name, value } of colors) {
+      const css = colorValue(name, value, theme);
+      if (css !== null)
+        lines.push(`${property(name)}:${css}`);
+    }
+    for (const { name, value } of shadows) {
+      const css = plain(inTheme(value, theme, first), 400);
+      if (css !== null && !colorNames.has(name))
+        lines.push(`${property(name)}:${css}`);
+    }
+    return lines;
+  };
+  const blocks = [];
+  const scheme = (theme) => theme === "light" || theme === "dark" ? [`color-scheme:${theme}`] : [];
+  const firstLines = themed(first);
+  for (const line of firstLines)
+    seen.add(line.slice(0, line.indexOf(":")));
+  if (firstLines.length)
+    blocks.push(`:root,[data-theme="${first}"]{${[...firstLines, ...scheme(first)].join(";")}}`);
+  for (const theme of all.slice(1)) {
+    const lines = themed(theme);
+    if (lines.length)
+      blocks.push(`[data-theme="${theme}"]{${[...lines, ...scheme(theme)].join(";")}}`);
+  }
+  const other = all.find((theme) => theme !== first && (theme === "dark" || theme === "light"));
+  if (other && (first === "dark" || first === "light") && themed(other).length) {
+    blocks.push(`@media (prefers-color-scheme:${other}){:root:not([data-theme]){${[...themed(other), ...scheme(other)].join(";")}}}`);
+  }
+  const root = [];
+  const once = (name) => seen.has(property(name)) ? false : (seen.add(property(name)), true);
+  for (const [key, family] of Object.entries(tokens)) {
+    if (key === "color" || key === "type" || key === "shadow" || !isObject4(family) || !Array.isArray(family.tokens))
+      continue;
+    for (const { name, value } of named(family)) {
+      const css = key === "spacing" || key === "radius" ? length(value) ?? plain(value, 200) : plain(value, 200);
+      if (css !== null && once(name))
+        root.push(`${property(name)}:${css}`);
+    }
+  }
+  const type = isObject4(tokens.type) ? tokens.type : {};
+  for (const [key, stack] of Object.entries(isObject4(type.families) ? type.families : {})) {
+    const name = key.toLowerCase();
+    if (!NAME.test(name) || typeof stack !== "string" || !FAMILY_STACK.test(stack) || (stack.match(/"/g)?.length ?? 0) % 2)
+      continue;
+    root.push(`--font-${name.replaceAll(".", "\\.")}:${stack}`);
+  }
+  if (root.length)
+    blocks.push(`:root{${root.join(";")}}`);
+  return blocks.join(`
+`);
+}
+var styleElement = (css) => `<style>${css.replace(/<\/(style)/gi, "<\\/$1")}</style>`;
+var scriptElement = (source) => `<script>${source.replace(/<\/(script)/gi, "<\\/$1").replaceAll("<!--", "\\x3C!--")}</script>`;
+function askedSystem(content) {
+  const markup = content.replace(/<!--[\s\S]*?(?:-->|$)|<(script|style|textarea)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, "");
+  for (const [tag] of markup.matchAll(/<meta\b[^>]*>/gi)) {
+    if (!/\bname\s*=\s*(?:"design-system"|'design-system'|design-system(?=[\s/>]))/i.test(tag))
+      continue;
+    const value = /\bcontent\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i.exec(tag);
+    const name = (value?.[1] ?? value?.[2] ?? value?.[3] ?? "").trim();
+    return name === "" || name.toLowerCase() === "none" ? null : name;
+  }
+  return null;
+}
+var missingSystemNote = (missing, installed, done) => `The page asks for the ${missing} design system, which isn't installed here, so it was ${done} ` + "without that system's styles and scripts." + (installed === null ? "" : ` The system installed here is called ${installed}.`);
+var systemTag = (name) => `<meta name="design-system" content="${name}">`;
+function sectionsOf(markdown) {
+  const intro = [];
+  const found = [];
+  let fence = null;
+  for (const line of markdown.replace(/^\uFEFF/, "").replace(/\r\n?/g, `
+`).split(`
+`)) {
+    const mark = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1] ?? null;
+    if (mark !== null) {
+      if (fence === null)
+        fence = mark;
+      else if (mark[0] === fence[0] && mark.length >= fence.length)
+        fence = null;
+    }
+    const heading = fence === null && mark === null ? /^(#{2,3})[ \t]+(.*?)[ \t]*#*[ \t]*$/.exec(line) : null;
+    if (heading?.[2])
+      found.push({ title: heading[2], level: heading[1].length, lines: [line] });
+    else
+      (found.at(-1)?.lines ?? intro).push(line);
+  }
+  return {
+    intro: intro.join(`
+`).trim(),
+    sections: found.map(({ title, level, lines }) => ({ title, level, text: lines.join(`
+`).trim() }))
+  };
+}
+function fitGuide(markdown, room) {
+  const { intro, sections } = sectionsOf(markdown);
+  const shown = [intro.slice(0, room)].filter(Boolean);
+  let used = shown[0]?.length ?? 0;
+  let next = 0;
+  for (;next < sections.length; next++) {
+    const { text } = sections[next];
+    if (used + text.length + 2 > room)
+      break;
+    shown.push(text);
+    used += text.length + 2;
+  }
+  return { shown: shown.join(`
+
+`), left: sections.slice(next) };
+}
+var plainName = (name) => name.replace(/\.md$/i, "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+function exampleMarkup(html) {
+  let text = html.replace(/^\uFEFF/, "").replace(/^\s*(?:<!--[\s\S]*?-->\s*)+/, "");
+  const body = /<body\b[^>]*>([\s\S]*?)(?:<\/body\s*>|$)/i.exec(text);
+  if (body) {
+    const head = /<head\b[^>]*>([\s\S]*?)<\/head\s*>/i.exec(text)?.[1] ?? "";
+    const styles = [...head.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi)].map(([, css]) => css.replace(/^\s*body\s*\{[^{}]*\}\s*/, "").trim()).filter(Boolean).map((css) => `<style>
+${css}
+</style>`);
+    text = [...styles, body[1].trim()].join(`
+`);
+  }
+  return text.replace(/<link\b[^>]*\b(?:tokens|bundle)\.css\b[^>]*>\s*/gi, "").replace(/<script\b[^>]*\bbundle\.js\b[^>]*>\s*<\/script\s*>\s*/gi, "").trim();
+}
+var fenced = (html) => {
+  const fence = "`".repeat(Math.max(3, ...[...html.matchAll(/`{3,}/g)].map(([run]) => run.length + 1)));
+  return `${fence}html
+${html}
+${fence}`;
+};
+var GUIDE_ROOM = 40000;
+var REACT_CDN = {
+  react: "https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js",
+  "react-dom": "https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"
+};
+
+class DesignSystem extends Service()("artifact-design/DesignSystem") {
+  static layer = effect(DesignSystem, gen2(function* () {
+    const fs = yield* FileSystem;
+    const paths = yield* Path;
+    const { designSystem } = yield* ServerConfig;
+    const text = (file) => fs.readFileString(file).pipe(orElseSucceed2(() => null));
+    const json = (file) => map6(text(file), (found) => {
+      if (found === null)
+        return null;
+      try {
+        return JSON.parse(found.replace(/^\uFEFF/, ""));
+      } catch {
+        return null;
+      }
+    });
+    const names = (folder) => fs.readDirectory(folder).pipe(orElseSucceed2(() => []));
+    const root = gen2(function* () {
+      if (designSystem === null)
+        return null;
+      for (const folder of [designSystem, paths.join(designSystem, "project")]) {
+        if ((yield* text(paths.join(folder, "README.md"))) !== null)
+          return folder;
+      }
+      return null;
+    });
+    const installed = gen2(function* () {
+      const folder = yield* root;
+      if (folder === null)
+        return null;
+      const readme = (yield* text(paths.join(folder, "README.md"))) ?? "";
+      const index = yield* json(paths.join(folder, "design-system.json"));
+      const tokens = yield* json(paths.join(folder, "tokens.json"));
+      const titled = [index, tokens].map((file) => isObject4(file) ? file.title ?? file.name : null).find((title) => typeof title === "string" && title.trim() !== "");
+      const name = (titled ?? paths.basename(folder)).replace(/[^A-Za-z0-9 _.-]/g, "").trim() || "design-system";
+      const has = (...parts) => fs.exists(paths.join(folder, ...parts)).pipe(orElseSucceed2(() => false));
+      const components = (yield* forEach2((yield* names(paths.join(folder, "components"))).sort(), (entry) => all2({
+        name: succeed7(entry),
+        doc: has("components", entry, "README.md"),
+        example: has("components", entry, "preview.html")
+      }))).filter(({ doc, example }) => doc || example);
+      const docs = (yield* names(folder)).filter((file) => /\.md$/i.test(file) && file.toLowerCase() !== "readme.md").map((file) => file.slice(0, -3)).sort();
+      const checks = (yield* names(paths.join(folder, "checks"))).filter((file) => file.endsWith(".js") && file !== "rest.js").map((file) => file.slice(0, -3)).sort();
+      return { name, folder, readme, docs, components, checks };
+    });
+    const kitOf = (system) => gen2(function* () {
+      const { folder } = system;
+      const css = (yield* text(paths.join(folder, "tokens.css"))) ?? tokensCss(yield* json(paths.join(folder, "tokens.json")));
+      const sheet = yield* text(paths.join(folder, "components", "bundle.css"));
+      const bundle = yield* text(paths.join(folder, "components", "bundle.js"));
+      const index = yield* json(paths.join(folder, "design-system.json"));
+      const scripts = [];
+      for (const library of listOf(isObject4(index) ? index.libraries : null)) {
+        if (!isObject4(library))
+          continue;
+        const file = typeof library.file === "string" ? library.file : null;
+        const cdn = typeof library.name === "string" ? REACT_CDN[library.name] : undefined;
+        if (file !== null && !paths.isAbsolute(file) && !file.split(/[\\/]/).includes("..")) {
+          const source = yield* text(paths.join(folder, file));
+          if (source === null) {
+            return yield* new ActionError({
+              message: `the ${system.name} design system lists ${file}, which is missing from ${folder}`
+            });
+          }
+          scripts.push(scriptElement(source));
+        } else if (cdn !== undefined)
+          scripts.push(`<script src="${cdn}"></script>`);
+      }
+      if (bundle !== null)
+        scripts.push(scriptElement(bundle));
+      const head = [css, sheet].filter((part) => part !== null && part.trim() !== "").map(styleElement);
+      if (!head.length && !scripts.length) {
+        return yield* new ActionError({
+          message: `the ${system.name} design system in ${folder} has no tokens.json, components/bundle.css or components/bundle.js to add to the page`
+        });
+      }
+      return { name: system.name, head: head.join(""), scripts: scripts.join(`
+`) };
+    });
+    const kitFor = (content) => gen2(function* () {
+      const asked = askedSystem(content);
+      if (asked === null)
+        return { kit: null, folder: null, missing: null, installed: null };
+      const system = yield* installed;
+      if (system === null || system.name.toLowerCase() !== asked.toLowerCase()) {
+        const missing = asked.replace(/\s+/g, " ").slice(0, 60);
+        return { kit: null, folder: null, missing, installed: system?.name ?? null };
+      }
+      return { kit: yield* kitOf(system), folder: system.folder, missing: null, installed: system.name };
+    });
+    const contents = (system) => {
+      const outline = [];
+      for (const { title, level } of sectionsOf(system.readme).sections) {
+        if (level === 2 || !outline.length)
+          outline.push({ title, under: [] });
+        else
+          outline.at(-1).under.push(title);
+      }
+      const lines = [];
+      if (outline.length) {
+        lines.push("Sections of the guide: " + outline.map(({ title, under }) => title + (under.length ? ` (${under.join("; ")})` : "")).join("; ") + ".");
+      }
+      if (system.docs.length)
+        lines.push(`Other documents: ${system.docs.join(", ")}.`);
+      if (system.components.length) {
+        lines.push("Components, each with its doc, its worked example or both: " + system.components.map(({ name }) => name).join(", ") + ".");
+      }
+      return lines.join(`
+`);
+    };
+    const partsNamed = (system, asked) => gen2(function* () {
+      const key = plainName(asked);
+      const found = [];
+      if (!key)
+        return found;
+      const exact = system.components.find(({ name }) => plainName(name) === key);
+      const { sections } = sectionsOf(system.readme);
+      const at = sections.findIndex(({ title }) => plainName(title) === key);
+      const doc = system.docs.find((name) => plainName(name) === key);
+      const component = exact ?? (at === -1 && doc === undefined ? system.components.filter(({ name }) => plainName(name).length >= 4 && key.startsWith(plainName(name))).sort((a, b) => b.name.length - a.name.length)[0] : undefined);
+      if (component) {
+        const folder = paths.join(system.folder, "components", component.name);
+        const readme = component.doc ? yield* text(paths.join(folder, "README.md")) : null;
+        const example = component.example ? yield* text(paths.join(folder, "preview.html")) : null;
+        const lines = [`## ${component.name}`];
+        if (readme?.trim())
+          lines.push(readme.replace(/^\uFEFF?\s*#[ \t]+.*\n/, "").trim());
+        if (example?.trim()) {
+          lines.push((readme?.trim() ? "Its example" : "A worked example") + ", as page content (publishing adds the system's files):", fenced(exampleMarkup(example)));
+        }
+        if (lines.length > 1)
+          found.push(lines.join(`
+
+`));
+      }
+      if (at !== -1) {
+        const { level } = sections[at];
+        const end = sections.findIndex((section, index) => index > at && section.level <= level);
+        found.push(sections.slice(at, end === -1 ? undefined : end).map((section) => section.text).join(`
+
+`));
+      }
+      if (doc !== undefined) {
+        const body = yield* text(paths.join(system.folder, `${doc}.md`));
+        if (body?.trim())
+          found.push(`## ${doc} (document)
+
+${body.trim()}`);
+      }
+      return found;
+    });
+    const guide = (parts) => gen2(function* () {
+      const system = yield* installed;
+      if (system === null)
+        return null;
+      const shown = [];
+      const unknown = [];
+      const left = [];
+      const seen = new Set;
+      let used = 0;
+      for (const asked of parts) {
+        const key = plainName(asked);
+        if (seen.has(key))
+          continue;
+        seen.add(key);
+        const found = (yield* partsNamed(system, asked)).join(`
+
+`);
+        if (!found)
+          unknown.push(asked);
+        else if (shown.length && used + found.length > GUIDE_ROOM)
+          left.push(asked);
+        else {
+          shown.push(found.length > GUIDE_ROOM ? `${found.slice(0, GUIDE_ROOM)}
+
+(${asked} is cut here, at ${GUIDE_ROOM} of its ${found.length} characters.)` : found);
+          used += found.length;
+        }
+      }
+      const notes = [];
+      if (left.length) {
+        notes.push(`Left out for room, so ask for them in another call: ${left.join(", ")}.`);
+      }
+      if (unknown.length || !parts.length) {
+        notes.push((unknown.length ? `Nothing in ${system.name} is called ${unknown.join(" or ")}. ` : "") + `What \`parts\` can name:
+${contents(system)}`);
+      }
+      return [`# ${system.name}`, ...shown, ...notes].join(`
+
+`);
+    });
+    return DesignSystem.of({ installed, contents, guide, kitFor });
   }));
 }
 
@@ -25065,121 +25470,6 @@ class Drafts extends Service()("artifact-design/Drafts") {
     return Drafts.of({ root, folder, rootIsOwn });
   }));
 }
-
-// plugins/artifact-design/src/edits.ts
-var MAX_CHARS = 65536;
-var MAX_WORK = 268435456;
-var MAX_COUNTED = 100;
-var MAX_EDITS = 64;
-function editsOf(value) {
-  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_EDITS) {
-    return `\`edits\` is a list of 1 to ${MAX_EDITS} {old_str, new_str} pairs.`;
-  }
-  for (const [n, edit] of value.entries()) {
-    const pair = edit;
-    if (!pair || typeof pair !== "object" || typeof pair.old_str !== "string" || typeof pair.new_str !== "string" || Object.keys(pair).some((key) => key !== "old_str" && key !== "new_str")) {
-      return `edits[${n}] must be {old_str, new_str}, both strings.`;
-    }
-  }
-  return value;
-}
-var wellFormed = (text) => !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(text);
-function count(text, find) {
-  let n = 0;
-  for (let at = text.indexOf(find);at !== -1 && n < MAX_COUNTED; at = text.indexOf(find, at + 1))
-    n++;
-  return n;
-}
-function applyEdits(text, edits) {
-  let size = 0;
-  for (const [n, { old_str, new_str }] of edits.entries()) {
-    if (old_str === "")
-      return { ok: false, miss: { reason: "empty_old_str", edit: n } };
-    if (new_str.includes("\x00"))
-      return { ok: false, miss: { reason: "malformed", edit: n } };
-    size += old_str.length + new_str.length;
-    if (size > MAX_CHARS)
-      return { ok: false, miss: { reason: "too_large" } };
-  }
-  if (edits.length * text.length > MAX_WORK)
-    return { ok: false, miss: { reason: "too_much_work" } };
-  const crlf = /\r\n/.test(text) && !/(^|[^\r])\n/.test(text);
-  const lf = (part) => crlf ? part.replaceAll(`\r
-`, `
-`) : part;
-  const before = lf(text);
-  let after = before;
-  for (const [n, edit] of edits.entries()) {
-    const find = lf(edit.old_str);
-    const replace = lf(edit.new_str);
-    if (!wellFormed(find) || !wellFormed(replace))
-      return { ok: false, miss: { reason: "malformed", edit: n } };
-    const at = after.indexOf(find);
-    if (at === -1)
-      return { ok: false, miss: { reason: "not_found", edit: n } };
-    if (after.indexOf(find, at + 1) !== -1) {
-      return { ok: false, miss: { reason: "ambiguous", edit: n, count: count(after, find) } };
-    }
-    after = after.slice(0, at) + replace + after.slice(at + find.length);
-  }
-  if (after === before)
-    return { ok: false, miss: { reason: "noop" } };
-  return { ok: true, text: crlf ? after.replaceAll(`
-`, `\r
-`) : after };
-}
-function why(miss, edits, chars) {
-  switch (miss.reason) {
-    case "empty_old_str":
-      return `edits[${miss.edit}] old_str is empty`;
-    case "malformed":
-      return `edits[${miss.edit}] has a NUL character in new_str, or a broken character (an unpaired surrogate) in old_str or new_str`;
-    case "too_large":
-      return `old_str and new_str add up to more than ${MAX_CHARS} characters over all the edits; make a change that large by editing the file, and publish without edits`;
-    case "too_much_work":
-      return `${edits} edits on a file of ${chars} characters is more than one publish call will apply; send at most ${Math.max(1, Math.floor(MAX_WORK / Math.max(1, chars)))} edits per call for a file this size, over as many calls as the change needs`;
-    case "not_found":
-      return `edits[${miss.edit}] old_str does not occur in the file`;
-    case "ambiguous":
-      return `edits[${miss.edit}] old_str occurs ${(miss.count ?? 0) >= MAX_COUNTED ? "at least " : ""}${miss.count} times in the file; include more of the surrounding text so that it occurs once`;
-    case "noop":
-      return "the edits leave the file unchanged (it already reads that way); publish the file without edits if it should go out as it is";
-  }
-}
-function missMessage(miss, edits, text, room) {
-  const head = `No edits were applied and nothing was published: ${why(miss, edits.length, text.length)}.`;
-  if (miss.reason !== "not_found" && miss.reason !== "ambiguous")
-    return head;
-  const withText = `${head} The file's current text follows; copy old_str from it exactly and send the publish again.
-
-${text}`;
-  if (withText.length <= room)
-    return withText;
-  return `${head} The file is too long to show here: read the file at file_path, copy old_str from it exactly and send the publish again.`;
-}
-function savedMessage(edits, failure) {
-  const one = edits === 1;
-  if (failure === undefined) {
-    return one ? "The edit was written to the file after it was published, so the file matches the published page." : `The ${edits} edits were written to the file after it was published, so the file matches the published page.`;
-  }
-  const lead = `Published — the page now has ${one ? "the edit" : `the ${edits} edits`}, but the file at file_path does not`;
-  if (failure === "write_failed") {
-    return `${lead}: writing it back failed, and the file may be partly written. Read it before anything else, restore it ` + `to the published text (the published page, ${one ? "the edit" : "the edits"} included), and only then publish it ` + "again; publishing it as it is could put damaged content on the page.";
-  }
-  return `${lead} (${{ changed_during_publish: "it changed on disk while the publish ran", hard_linked: "it has other names on disk (a hard link)", not_writable: "it can't be written" }[failure]}, so it was left as it is). ` + `Apply the same ${one ? "edit" : "edits"} to that file before you publish it again` + `${failure === "hard_linked" ? ", and publish it without `edits` while it has other names" : ""}; publishing it as it is would revert ${one ? "it" : "them"}.`;
-}
-
-// plugins/artifact-design/src/errors.ts
-class ActionError extends TaggedError3()("ActionError", {
-  message: String5
-}) {
-}
-
-class Refusal extends TaggedError3()("Refusal", {
-  message: String5
-}) {
-}
-var messageOf = (error) => error.cause instanceof Error ? error.cause.message : error.message;
 
 // plugins/artifact-design/src/html.ts
 function escape(text) {
@@ -25234,2900 +25524,6 @@ function unescape(text) {
 
 // plugins/artifact-design/src/preview.ts
 import { createHash } from "node:crypto";
-
-// node_modules/.bun/marked@16.1.0/node_modules/marked/lib/marked.esm.js
-function L() {
-  return { async: false, breaks: false, extensions: null, gfm: true, hooks: null, pedantic: false, renderer: null, silent: false, tokenizer: null, walkTokens: null };
-}
-var O = L();
-function H(l) {
-  O = l;
-}
-var E = { exec: () => null };
-function h(l, e = "") {
-  let t = typeof l == "string" ? l : l.source, n = { replace: (r, i) => {
-    let s = typeof i == "string" ? i : i.source;
-    return s = s.replace(m.caret, "$1"), t = t.replace(r, s), n;
-  }, getRegex: () => new RegExp(t, e) };
-  return n;
-}
-var m = { codeRemoveIndent: /^(?: {1,4}| {0,3}\t)/gm, outputLinkReplace: /\\([\[\]])/g, indentCodeCompensation: /^(\s+)(?:```)/, beginningSpace: /^\s+/, endingHash: /#$/, startingSpaceChar: /^ /, endingSpaceChar: / $/, nonSpaceChar: /[^ ]/, newLineCharGlobal: /\n/g, tabCharGlobal: /\t/g, multipleSpaceGlobal: /\s+/g, blankLine: /^[ \t]*$/, doubleBlankLine: /\n[ \t]*\n[ \t]*$/, blockquoteStart: /^ {0,3}>/, blockquoteSetextReplace: /\n {0,3}((?:=+|-+) *)(?=\n|$)/g, blockquoteSetextReplace2: /^ {0,3}>[ \t]?/gm, listReplaceTabs: /^\t+/, listReplaceNesting: /^ {1,4}(?=( {4})*[^ ])/g, listIsTask: /^\[[ xX]\] /, listReplaceTask: /^\[[ xX]\] +/, anyLine: /\n.*\n/, hrefBrackets: /^<(.*)>$/, tableDelimiter: /[:|]/, tableAlignChars: /^\||\| *$/g, tableRowBlankLine: /\n[ \t]*$/, tableAlignRight: /^ *-+: *$/, tableAlignCenter: /^ *:-+: *$/, tableAlignLeft: /^ *:-+ *$/, startATag: /^<a /i, endATag: /^<\/a>/i, startPreScriptTag: /^<(pre|code|kbd|script)(\s|>)/i, endPreScriptTag: /^<\/(pre|code|kbd|script)(\s|>)/i, startAngleBracket: /^</, endAngleBracket: />$/, pedanticHrefTitle: /^([^'"]*[^\s])\s+(['"])(.*)\2/, unicodeAlphaNumeric: /[\p{L}\p{N}]/u, escapeTest: /[&<>"']/, escapeReplace: /[&<>"']/g, escapeTestNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/, escapeReplaceNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/g, unescapeTest: /&(#(?:\d+)|(?:#x[0-9A-Fa-f]+)|(?:\w+));?/ig, caret: /(^|[^\[])\^/g, percentDecode: /%25/g, findPipe: /\|/g, splitPipe: / \|/, slashPipe: /\\\|/g, carriageReturn: /\r\n|\r/g, spaceLine: /^ +$/gm, notSpaceStart: /^\S*/, endingNewline: /\n$/, listItemRegex: (l) => new RegExp(`^( {0,3}${l})((?:[	 ][^\\n]*)?(?:\\n|$))`), nextBulletRegex: (l) => new RegExp(`^ {0,${Math.min(3, l - 1)}}(?:[*+-]|\\d{1,9}[.)])((?:[ 	][^\\n]*)?(?:\\n|$))`), hrRegex: (l) => new RegExp(`^ {0,${Math.min(3, l - 1)}}((?:- *){3,}|(?:_ *){3,}|(?:\\* *){3,})(?:\\n+|$)`), fencesBeginRegex: (l) => new RegExp(`^ {0,${Math.min(3, l - 1)}}(?:\`\`\`|~~~)`), headingBeginRegex: (l) => new RegExp(`^ {0,${Math.min(3, l - 1)}}#`), htmlBeginRegex: (l) => new RegExp(`^ {0,${Math.min(3, l - 1)}}<(?:[a-z].*>|!--)`, "i") };
-var xe = /^(?:[ \t]*(?:\n|$))+/;
-var be = /^((?: {4}| {0,3}\t)[^\n]+(?:\n(?:[ \t]*(?:\n|$))*)?)+/;
-var Re = /^ {0,3}(`{3,}(?=[^`\n]*(?:\n|$))|~{3,})([^\n]*)(?:\n|$)(?:|([\s\S]*?)(?:\n|$))(?: {0,3}\1[~`]* *(?=\n|$)|$)/;
-var C = /^ {0,3}((?:-[\t ]*){3,}|(?:_[ \t]*){3,}|(?:\*[ \t]*){3,})(?:\n+|$)/;
-var Oe = /^ {0,3}(#{1,6})(?=\s|$)(.*)(?:\n+|$)/;
-var j = /(?:[*+-]|\d{1,9}[.)])/;
-var se = /^(?!bull |blockCode|fences|blockquote|heading|html|table)((?:.|\n(?!\s*?\n|bull |blockCode|fences|blockquote|heading|html|table))+?)\n {0,3}(=+|-+) *(?:\n+|$)/;
-var ie = h(se).replace(/bull/g, j).replace(/blockCode/g, /(?: {4}| {0,3}\t)/).replace(/fences/g, / {0,3}(?:`{3,}|~{3,})/).replace(/blockquote/g, / {0,3}>/).replace(/heading/g, / {0,3}#{1,6}/).replace(/html/g, / {0,3}<[^\n>]+>\n/).replace(/\|table/g, "").getRegex();
-var Te = h(se).replace(/bull/g, j).replace(/blockCode/g, /(?: {4}| {0,3}\t)/).replace(/fences/g, / {0,3}(?:`{3,}|~{3,})/).replace(/blockquote/g, / {0,3}>/).replace(/heading/g, / {0,3}#{1,6}/).replace(/html/g, / {0,3}<[^\n>]+>\n/).replace(/table/g, / {0,3}\|?(?:[:\- ]*\|)+[\:\- ]*\n/).getRegex();
-var F = /^([^\n]+(?:\n(?!hr|heading|lheading|blockquote|fences|list|html|table| +\n)[^\n]+)*)/;
-var we = /^[^\n]+/;
-var Q = /(?!\s*\])(?:\\.|[^\[\]\\])+/;
-var ye = h(/^ {0,3}\[(label)\]: *(?:\n[ \t]*)?([^<\s][^\s]*|<.*?>)(?:(?: +(?:\n[ \t]*)?| *\n[ \t]*)(title))? *(?:\n+|$)/).replace("label", Q).replace("title", /(?:"(?:\\"?|[^"\\])*"|'[^'\n]*(?:\n[^'\n]+)*\n?'|\([^()]*\))/).getRegex();
-var Pe = h(/^( {0,3}bull)([ \t][^\n]+?)?(?:\n|$)/).replace(/bull/g, j).getRegex();
-var v = "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|meta|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul";
-var U = /<!--(?:-?>|[\s\S]*?(?:-->|$))/;
-var Se = h("^ {0,3}(?:<(script|pre|style|textarea)[\\s>][\\s\\S]*?(?:</\\1>[^\\n]*\\n+|$)|comment[^\\n]*(\\n+|$)|<\\?[\\s\\S]*?(?:\\?>\\n*|$)|<![A-Z][\\s\\S]*?(?:>\\n*|$)|<!\\[CDATA\\[[\\s\\S]*?(?:\\]\\]>\\n*|$)|</?(tag)(?: +|\\n|/?>)[\\s\\S]*?(?:(?:\\n[ \t]*)+\\n|$)|<(?!script|pre|style|textarea)([a-z][\\w-]*)(?:attribute)*? */?>(?=[ \\t]*(?:\\n|$))[\\s\\S]*?(?:(?:\\n[ \t]*)+\\n|$)|</(?!script|pre|style|textarea)[a-z][\\w-]*\\s*>(?=[ \\t]*(?:\\n|$))[\\s\\S]*?(?:(?:\\n[ \t]*)+\\n|$))", "i").replace("comment", U).replace("tag", v).replace("attribute", / +[a-zA-Z:_][\w.:-]*(?: *= *"[^"\n]*"| *= *'[^'\n]*'| *= *[^\s"'=<>`]+)?/).getRegex();
-var oe = h(F).replace("hr", C).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("|lheading", "").replace("|table", "").replace("blockquote", " {0,3}>").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*\\n)|~{3,})[^\\n]*\\n").replace("list", " {0,3}(?:[*+-]|1[.)]) ").replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", v).getRegex();
-var $e = h(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/).replace("paragraph", oe).getRegex();
-var K = { blockquote: $e, code: be, def: ye, fences: Re, heading: Oe, hr: C, html: Se, lheading: ie, list: Pe, newline: xe, paragraph: oe, table: E, text: we };
-var re = h("^ *([^\\n ].*)\\n {0,3}((?:\\| *)?:?-+:? *(?:\\| *:?-+:? *)*(?:\\| *)?)(?:\\n((?:(?! *\\n|hr|heading|blockquote|code|fences|list|html).*(?:\\n|$))*)\\n*|$)").replace("hr", C).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("blockquote", " {0,3}>").replace("code", "(?: {4}| {0,3}\t)[^\\n]").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*\\n)|~{3,})[^\\n]*\\n").replace("list", " {0,3}(?:[*+-]|1[.)]) ").replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", v).getRegex();
-var _e = { ...K, lheading: Te, table: re, paragraph: h(F).replace("hr", C).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("|lheading", "").replace("table", re).replace("blockquote", " {0,3}>").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*\\n)|~{3,})[^\\n]*\\n").replace("list", " {0,3}(?:[*+-]|1[.)]) ").replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", v).getRegex() };
-var Le = { ...K, html: h(`^ *(?:comment *(?:\\n|\\s*$)|<(tag)[\\s\\S]+?</\\1> *(?:\\n{2,}|\\s*$)|<tag(?:"[^"]*"|'[^']*'|\\s[^'"/>\\s]*)*?/?> *(?:\\n{2,}|\\s*$))`).replace("comment", U).replace(/tag/g, "(?!(?:a|em|strong|small|s|cite|q|dfn|abbr|data|time|code|var|samp|kbd|sub|sup|i|b|u|mark|ruby|rt|rp|bdi|bdo|span|br|wbr|ins|del|img)\\b)\\w+(?!:|[^\\w\\s@]*@)\\b").getRegex(), def: /^ *\[([^\]]+)\]: *<?([^\s>]+)>?(?: +(["(][^\n]+[")]))? *(?:\n+|$)/, heading: /^(#{1,6})(.*)(?:\n+|$)/, fences: E, lheading: /^(.+?)\n {0,3}(=+|-+) *(?:\n+|$)/, paragraph: h(F).replace("hr", C).replace("heading", ` *#{1,6} *[^
-]`).replace("lheading", ie).replace("|table", "").replace("blockquote", " {0,3}>").replace("|fences", "").replace("|list", "").replace("|html", "").replace("|tag", "").getRegex() };
-var Me = /^\\([!"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~])/;
-var ze = /^(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/;
-var ae = /^( {2,}|\\)\n(?!\s*$)/;
-var Ae = /^(`+|[^`])(?:(?= {2,}\n)|[\s\S]*?(?:(?=[\\<!\[`*_]|\b_|$)|[^ ](?= {2,}\n)))/;
-var D = /[\p{P}\p{S}]/u;
-var X = /[\s\p{P}\p{S}]/u;
-var le = /[^\s\p{P}\p{S}]/u;
-var Ee = h(/^((?![*_])punctSpace)/, "u").replace(/punctSpace/g, X).getRegex();
-var ue = /(?!~)[\p{P}\p{S}]/u;
-var Ce = /(?!~)[\s\p{P}\p{S}]/u;
-var Ie = /(?:[^\s\p{P}\p{S}]|~)/u;
-var Be = /\[[^[\]]*?\]\((?:\\.|[^\\\(\)]|\((?:\\.|[^\\\(\)])*\))*\)|`[^`]*?`|<[^<>]*?>/g;
-var pe = /^(?:\*+(?:((?!\*)punct)|[^\s*]))|^_+(?:((?!_)punct)|([^\s_]))/;
-var qe = h(pe, "u").replace(/punct/g, D).getRegex();
-var ve = h(pe, "u").replace(/punct/g, ue).getRegex();
-var ce = "^[^_*]*?__[^_*]*?\\*[^_*]*?(?=__)|[^*]+(?=[^*])|(?!\\*)punct(\\*+)(?=[\\s]|$)|notPunctSpace(\\*+)(?!\\*)(?=punctSpace|$)|(?!\\*)punctSpace(\\*+)(?=notPunctSpace)|[\\s](\\*+)(?!\\*)(?=punct)|(?!\\*)punct(\\*+)(?!\\*)(?=punct)|notPunctSpace(\\*+)(?=notPunctSpace)";
-var De = h(ce, "gu").replace(/notPunctSpace/g, le).replace(/punctSpace/g, X).replace(/punct/g, D).getRegex();
-var Ze = h(ce, "gu").replace(/notPunctSpace/g, Ie).replace(/punctSpace/g, Ce).replace(/punct/g, ue).getRegex();
-var Ge = h("^[^_*]*?\\*\\*[^_*]*?_[^_*]*?(?=\\*\\*)|[^_]+(?=[^_])|(?!_)punct(_+)(?=[\\s]|$)|notPunctSpace(_+)(?!_)(?=punctSpace|$)|(?!_)punctSpace(_+)(?=notPunctSpace)|[\\s](_+)(?!_)(?=punct)|(?!_)punct(_+)(?!_)(?=punct)", "gu").replace(/notPunctSpace/g, le).replace(/punctSpace/g, X).replace(/punct/g, D).getRegex();
-var He = h(/\\(punct)/, "gu").replace(/punct/g, D).getRegex();
-var Ne = h(/^<(scheme:[^\s\x00-\x1f<>]*|email)>/).replace("scheme", /[a-zA-Z][a-zA-Z0-9+.-]{1,31}/).replace("email", /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+(@)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(?![-_])/).getRegex();
-var je = h(U).replace("(?:-->|$)", "-->").getRegex();
-var Fe = h("^comment|^</[a-zA-Z][\\w:-]*\\s*>|^<[a-zA-Z][\\w-]*(?:attribute)*?\\s*/?>|^<\\?[\\s\\S]*?\\?>|^<![a-zA-Z]+\\s[\\s\\S]*?>|^<!\\[CDATA\\[[\\s\\S]*?\\]\\]>").replace("comment", je).replace("attribute", /\s+[a-zA-Z:_][\w.:-]*(?:\s*=\s*"[^"]*"|\s*=\s*'[^']*'|\s*=\s*[^\s"'=<>`]+)?/).getRegex();
-var q = /(?:\[(?:\\.|[^\[\]\\])*\]|\\.|`[^`]*`|[^\[\]\\`])*?/;
-var Qe = h(/^!?\[(label)\]\(\s*(href)(?:(?:[ \t]*(?:\n[ \t]*)?)(title))?\s*\)/).replace("label", q).replace("href", /<(?:\\.|[^\n<>\\])+>|[^ \t\n\x00-\x1f]*/).replace("title", /"(?:\\"?|[^"\\])*"|'(?:\\'?|[^'\\])*'|\((?:\\\)?|[^)\\])*\)/).getRegex();
-var he = h(/^!?\[(label)\]\[(ref)\]/).replace("label", q).replace("ref", Q).getRegex();
-var de = h(/^!?\[(ref)\](?:\[\])?/).replace("ref", Q).getRegex();
-var Ue = h("reflink|nolink(?!\\()", "g").replace("reflink", he).replace("nolink", de).getRegex();
-var W = { _backpedal: E, anyPunctuation: He, autolink: Ne, blockSkip: Be, br: ae, code: ze, del: E, emStrongLDelim: qe, emStrongRDelimAst: De, emStrongRDelimUnd: Ge, escape: Me, link: Qe, nolink: de, punctuation: Ee, reflink: he, reflinkSearch: Ue, tag: Fe, text: Ae, url: E };
-var Ke = { ...W, link: h(/^!?\[(label)\]\((.*?)\)/).replace("label", q).getRegex(), reflink: h(/^!?\[(label)\]\s*\[([^\]]*)\]/).replace("label", q).getRegex() };
-var N = { ...W, emStrongRDelimAst: Ze, emStrongLDelim: ve, url: h(/^((?:ftp|https?):\/\/|www\.)(?:[a-zA-Z0-9\-]+\.?)+[^\s<]*|^email/, "i").replace("email", /[A-Za-z0-9._+-]+(@)[a-zA-Z0-9-_]+(?:\.[a-zA-Z0-9-_]*[a-zA-Z0-9])+(?![-_])/).getRegex(), _backpedal: /(?:[^?!.,:;*_'"~()&]+|\([^)]*\)|&(?![a-zA-Z0-9]+;$)|[?!.,:;*_'"~)]+(?!$))+/, del: /^(~~?)(?=[^\s~])((?:\\.|[^\\])*?(?:\\.|[^\s~\\]))\1(?=[^~]|$)/, text: /^([`~]+|[^`~])(?:(?= {2,}\n)|(?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)|[\s\S]*?(?:(?=[\\<!\[`*~_]|\b_|https?:\/\/|ftp:\/\/|www\.|$)|[^ ](?= {2,}\n)|[^a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-](?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)))/ };
-var Xe = { ...N, br: h(ae).replace("{2,}", "*").getRegex(), text: h(N.text).replace("\\b_", "\\b_| {2,}\\n").replace(/\{2,\}/g, "*").getRegex() };
-var I = { normal: K, gfm: _e, pedantic: Le };
-var M = { normal: W, gfm: N, breaks: Xe, pedantic: Ke };
-var We = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-var ke = (l) => We[l];
-function w(l, e) {
-  if (e) {
-    if (m.escapeTest.test(l))
-      return l.replace(m.escapeReplace, ke);
-  } else if (m.escapeTestNoEncode.test(l))
-    return l.replace(m.escapeReplaceNoEncode, ke);
-  return l;
-}
-function J(l) {
-  try {
-    l = encodeURI(l).replace(m.percentDecode, "%");
-  } catch {
-    return null;
-  }
-  return l;
-}
-function V(l, e) {
-  let t = l.replace(m.findPipe, (i, s, o) => {
-    let a = false, u = s;
-    for (;--u >= 0 && o[u] === "\\"; )
-      a = !a;
-    return a ? "|" : " |";
-  }), n = t.split(m.splitPipe), r = 0;
-  if (n[0].trim() || n.shift(), n.length > 0 && !n.at(-1)?.trim() && n.pop(), e)
-    if (n.length > e)
-      n.splice(e);
-    else
-      for (;n.length < e; )
-        n.push("");
-  for (;r < n.length; r++)
-    n[r] = n[r].trim().replace(m.slashPipe, "|");
-  return n;
-}
-function z(l, e, t) {
-  let n = l.length;
-  if (n === 0)
-    return "";
-  let r = 0;
-  for (;r < n; ) {
-    let i = l.charAt(n - r - 1);
-    if (i === e && !t)
-      r++;
-    else if (i !== e && t)
-      r++;
-    else
-      break;
-  }
-  return l.slice(0, n - r);
-}
-function ge(l, e) {
-  if (l.indexOf(e[1]) === -1)
-    return -1;
-  let t = 0;
-  for (let n = 0;n < l.length; n++)
-    if (l[n] === "\\")
-      n++;
-    else if (l[n] === e[0])
-      t++;
-    else if (l[n] === e[1] && (t--, t < 0))
-      return n;
-  return t > 0 ? -2 : -1;
-}
-function fe(l, e, t, n, r) {
-  let i = e.href, s = e.title || null, o = l[1].replace(r.other.outputLinkReplace, "$1");
-  n.state.inLink = true;
-  let a = { type: l[0].charAt(0) === "!" ? "image" : "link", raw: t, href: i, title: s, text: o, tokens: n.inlineTokens(o) };
-  return n.state.inLink = false, a;
-}
-function Je(l, e, t) {
-  let n = l.match(t.other.indentCodeCompensation);
-  if (n === null)
-    return e;
-  let r = n[1];
-  return e.split(`
-`).map((i) => {
-    let s = i.match(t.other.beginningSpace);
-    if (s === null)
-      return i;
-    let [o] = s;
-    return o.length >= r.length ? i.slice(r.length) : i;
-  }).join(`
-`);
-}
-var y = class {
-  options;
-  rules;
-  lexer;
-  constructor(e) {
-    this.options = e || O;
-  }
-  space(e) {
-    let t = this.rules.block.newline.exec(e);
-    if (t && t[0].length > 0)
-      return { type: "space", raw: t[0] };
-  }
-  code(e) {
-    let t = this.rules.block.code.exec(e);
-    if (t) {
-      let n = t[0].replace(this.rules.other.codeRemoveIndent, "");
-      return { type: "code", raw: t[0], codeBlockStyle: "indented", text: this.options.pedantic ? n : z(n, `
-`) };
-    }
-  }
-  fences(e) {
-    let t = this.rules.block.fences.exec(e);
-    if (t) {
-      let n = t[0], r = Je(n, t[3] || "", this.rules);
-      return { type: "code", raw: n, lang: t[2] ? t[2].trim().replace(this.rules.inline.anyPunctuation, "$1") : t[2], text: r };
-    }
-  }
-  heading(e) {
-    let t = this.rules.block.heading.exec(e);
-    if (t) {
-      let n = t[2].trim();
-      if (this.rules.other.endingHash.test(n)) {
-        let r = z(n, "#");
-        (this.options.pedantic || !r || this.rules.other.endingSpaceChar.test(r)) && (n = r.trim());
-      }
-      return { type: "heading", raw: t[0], depth: t[1].length, text: n, tokens: this.lexer.inline(n) };
-    }
-  }
-  hr(e) {
-    let t = this.rules.block.hr.exec(e);
-    if (t)
-      return { type: "hr", raw: z(t[0], `
-`) };
-  }
-  blockquote(e) {
-    let t = this.rules.block.blockquote.exec(e);
-    if (t) {
-      let n = z(t[0], `
-`).split(`
-`), r = "", i = "", s = [];
-      for (;n.length > 0; ) {
-        let o = false, a = [], u;
-        for (u = 0;u < n.length; u++)
-          if (this.rules.other.blockquoteStart.test(n[u]))
-            a.push(n[u]), o = true;
-          else if (!o)
-            a.push(n[u]);
-          else
-            break;
-        n = n.slice(u);
-        let p = a.join(`
-`), c = p.replace(this.rules.other.blockquoteSetextReplace, `
-    $1`).replace(this.rules.other.blockquoteSetextReplace2, "");
-        r = r ? `${r}
-${p}` : p, i = i ? `${i}
-${c}` : c;
-        let f = this.lexer.state.top;
-        if (this.lexer.state.top = true, this.lexer.blockTokens(c, s, true), this.lexer.state.top = f, n.length === 0)
-          break;
-        let k = s.at(-1);
-        if (k?.type === "code")
-          break;
-        if (k?.type === "blockquote") {
-          let x = k, g = x.raw + `
-` + n.join(`
-`), T = this.blockquote(g);
-          s[s.length - 1] = T, r = r.substring(0, r.length - x.raw.length) + T.raw, i = i.substring(0, i.length - x.text.length) + T.text;
-          break;
-        } else if (k?.type === "list") {
-          let x = k, g = x.raw + `
-` + n.join(`
-`), T = this.list(g);
-          s[s.length - 1] = T, r = r.substring(0, r.length - k.raw.length) + T.raw, i = i.substring(0, i.length - x.raw.length) + T.raw, n = g.substring(s.at(-1).raw.length).split(`
-`);
-          continue;
-        }
-      }
-      return { type: "blockquote", raw: r, tokens: s, text: i };
-    }
-  }
-  list(e) {
-    let t = this.rules.block.list.exec(e);
-    if (t) {
-      let n = t[1].trim(), r = n.length > 1, i = { type: "list", raw: "", ordered: r, start: r ? +n.slice(0, -1) : "", loose: false, items: [] };
-      n = r ? `\\d{1,9}\\${n.slice(-1)}` : `\\${n}`, this.options.pedantic && (n = r ? n : "[*+-]");
-      let s = this.rules.other.listItemRegex(n), o = false;
-      for (;e; ) {
-        let u = false, p = "", c = "";
-        if (!(t = s.exec(e)) || this.rules.block.hr.test(e))
-          break;
-        p = t[0], e = e.substring(p.length);
-        let f = t[2].split(`
-`, 1)[0].replace(this.rules.other.listReplaceTabs, (Z) => " ".repeat(3 * Z.length)), k = e.split(`
-`, 1)[0], x = !f.trim(), g = 0;
-        if (this.options.pedantic ? (g = 2, c = f.trimStart()) : x ? g = t[1].length + 1 : (g = t[2].search(this.rules.other.nonSpaceChar), g = g > 4 ? 1 : g, c = f.slice(g), g += t[1].length), x && this.rules.other.blankLine.test(k) && (p += k + `
-`, e = e.substring(k.length + 1), u = true), !u) {
-          let Z = this.rules.other.nextBulletRegex(g), ee = this.rules.other.hrRegex(g), te = this.rules.other.fencesBeginRegex(g), ne = this.rules.other.headingBeginRegex(g), me = this.rules.other.htmlBeginRegex(g);
-          for (;e; ) {
-            let G = e.split(`
-`, 1)[0], A;
-            if (k = G, this.options.pedantic ? (k = k.replace(this.rules.other.listReplaceNesting, "  "), A = k) : A = k.replace(this.rules.other.tabCharGlobal, "    "), te.test(k) || ne.test(k) || me.test(k) || Z.test(k) || ee.test(k))
-              break;
-            if (A.search(this.rules.other.nonSpaceChar) >= g || !k.trim())
-              c += `
-` + A.slice(g);
-            else {
-              if (x || f.replace(this.rules.other.tabCharGlobal, "    ").search(this.rules.other.nonSpaceChar) >= 4 || te.test(f) || ne.test(f) || ee.test(f))
-                break;
-              c += `
-` + k;
-            }
-            !x && !k.trim() && (x = true), p += G + `
-`, e = e.substring(G.length + 1), f = A.slice(g);
-          }
-        }
-        i.loose || (o ? i.loose = true : this.rules.other.doubleBlankLine.test(p) && (o = true));
-        let T = null, Y;
-        this.options.gfm && (T = this.rules.other.listIsTask.exec(c), T && (Y = T[0] !== "[ ] ", c = c.replace(this.rules.other.listReplaceTask, ""))), i.items.push({ type: "list_item", raw: p, task: !!T, checked: Y, loose: false, text: c, tokens: [] }), i.raw += p;
-      }
-      let a = i.items.at(-1);
-      if (a)
-        a.raw = a.raw.trimEnd(), a.text = a.text.trimEnd();
-      else
-        return;
-      i.raw = i.raw.trimEnd();
-      for (let u = 0;u < i.items.length; u++)
-        if (this.lexer.state.top = false, i.items[u].tokens = this.lexer.blockTokens(i.items[u].text, []), !i.loose) {
-          let p = i.items[u].tokens.filter((f) => f.type === "space"), c = p.length > 0 && p.some((f) => this.rules.other.anyLine.test(f.raw));
-          i.loose = c;
-        }
-      if (i.loose)
-        for (let u = 0;u < i.items.length; u++)
-          i.items[u].loose = true;
-      return i;
-    }
-  }
-  html(e) {
-    let t = this.rules.block.html.exec(e);
-    if (t)
-      return { type: "html", block: true, raw: t[0], pre: t[1] === "pre" || t[1] === "script" || t[1] === "style", text: t[0] };
-  }
-  def(e) {
-    let t = this.rules.block.def.exec(e);
-    if (t) {
-      let n = t[1].toLowerCase().replace(this.rules.other.multipleSpaceGlobal, " "), r = t[2] ? t[2].replace(this.rules.other.hrefBrackets, "$1").replace(this.rules.inline.anyPunctuation, "$1") : "", i = t[3] ? t[3].substring(1, t[3].length - 1).replace(this.rules.inline.anyPunctuation, "$1") : t[3];
-      return { type: "def", tag: n, raw: t[0], href: r, title: i };
-    }
-  }
-  table(e) {
-    let t = this.rules.block.table.exec(e);
-    if (!t || !this.rules.other.tableDelimiter.test(t[2]))
-      return;
-    let n = V(t[1]), r = t[2].replace(this.rules.other.tableAlignChars, "").split("|"), i = t[3]?.trim() ? t[3].replace(this.rules.other.tableRowBlankLine, "").split(`
-`) : [], s = { type: "table", raw: t[0], header: [], align: [], rows: [] };
-    if (n.length === r.length) {
-      for (let o of r)
-        this.rules.other.tableAlignRight.test(o) ? s.align.push("right") : this.rules.other.tableAlignCenter.test(o) ? s.align.push("center") : this.rules.other.tableAlignLeft.test(o) ? s.align.push("left") : s.align.push(null);
-      for (let o = 0;o < n.length; o++)
-        s.header.push({ text: n[o], tokens: this.lexer.inline(n[o]), header: true, align: s.align[o] });
-      for (let o of i)
-        s.rows.push(V(o, s.header.length).map((a, u) => ({ text: a, tokens: this.lexer.inline(a), header: false, align: s.align[u] })));
-      return s;
-    }
-  }
-  lheading(e) {
-    let t = this.rules.block.lheading.exec(e);
-    if (t)
-      return { type: "heading", raw: t[0], depth: t[2].charAt(0) === "=" ? 1 : 2, text: t[1], tokens: this.lexer.inline(t[1]) };
-  }
-  paragraph(e) {
-    let t = this.rules.block.paragraph.exec(e);
-    if (t) {
-      let n = t[1].charAt(t[1].length - 1) === `
-` ? t[1].slice(0, -1) : t[1];
-      return { type: "paragraph", raw: t[0], text: n, tokens: this.lexer.inline(n) };
-    }
-  }
-  text(e) {
-    let t = this.rules.block.text.exec(e);
-    if (t)
-      return { type: "text", raw: t[0], text: t[0], tokens: this.lexer.inline(t[0]) };
-  }
-  escape(e) {
-    let t = this.rules.inline.escape.exec(e);
-    if (t)
-      return { type: "escape", raw: t[0], text: t[1] };
-  }
-  tag(e) {
-    let t = this.rules.inline.tag.exec(e);
-    if (t)
-      return !this.lexer.state.inLink && this.rules.other.startATag.test(t[0]) ? this.lexer.state.inLink = true : this.lexer.state.inLink && this.rules.other.endATag.test(t[0]) && (this.lexer.state.inLink = false), !this.lexer.state.inRawBlock && this.rules.other.startPreScriptTag.test(t[0]) ? this.lexer.state.inRawBlock = true : this.lexer.state.inRawBlock && this.rules.other.endPreScriptTag.test(t[0]) && (this.lexer.state.inRawBlock = false), { type: "html", raw: t[0], inLink: this.lexer.state.inLink, inRawBlock: this.lexer.state.inRawBlock, block: false, text: t[0] };
-  }
-  link(e) {
-    let t = this.rules.inline.link.exec(e);
-    if (t) {
-      let n = t[2].trim();
-      if (!this.options.pedantic && this.rules.other.startAngleBracket.test(n)) {
-        if (!this.rules.other.endAngleBracket.test(n))
-          return;
-        let s = z(n.slice(0, -1), "\\");
-        if ((n.length - s.length) % 2 === 0)
-          return;
-      } else {
-        let s = ge(t[2], "()");
-        if (s === -2)
-          return;
-        if (s > -1) {
-          let a = (t[0].indexOf("!") === 0 ? 5 : 4) + t[1].length + s;
-          t[2] = t[2].substring(0, s), t[0] = t[0].substring(0, a).trim(), t[3] = "";
-        }
-      }
-      let r = t[2], i = "";
-      if (this.options.pedantic) {
-        let s = this.rules.other.pedanticHrefTitle.exec(r);
-        s && (r = s[1], i = s[3]);
-      } else
-        i = t[3] ? t[3].slice(1, -1) : "";
-      return r = r.trim(), this.rules.other.startAngleBracket.test(r) && (this.options.pedantic && !this.rules.other.endAngleBracket.test(n) ? r = r.slice(1) : r = r.slice(1, -1)), fe(t, { href: r && r.replace(this.rules.inline.anyPunctuation, "$1"), title: i && i.replace(this.rules.inline.anyPunctuation, "$1") }, t[0], this.lexer, this.rules);
-    }
-  }
-  reflink(e, t) {
-    let n;
-    if ((n = this.rules.inline.reflink.exec(e)) || (n = this.rules.inline.nolink.exec(e))) {
-      let r = (n[2] || n[1]).replace(this.rules.other.multipleSpaceGlobal, " "), i = t[r.toLowerCase()];
-      if (!i) {
-        let s = n[0].charAt(0);
-        return { type: "text", raw: s, text: s };
-      }
-      return fe(n, i, n[0], this.lexer, this.rules);
-    }
-  }
-  emStrong(e, t, n = "") {
-    let r = this.rules.inline.emStrongLDelim.exec(e);
-    if (!r || r[3] && n.match(this.rules.other.unicodeAlphaNumeric))
-      return;
-    if (!(r[1] || r[2] || "") || !n || this.rules.inline.punctuation.exec(n)) {
-      let s = [...r[0]].length - 1, o, a, u = s, p = 0, c = r[0][0] === "*" ? this.rules.inline.emStrongRDelimAst : this.rules.inline.emStrongRDelimUnd;
-      for (c.lastIndex = 0, t = t.slice(-1 * e.length + s);(r = c.exec(t)) != null; ) {
-        if (o = r[1] || r[2] || r[3] || r[4] || r[5] || r[6], !o)
-          continue;
-        if (a = [...o].length, r[3] || r[4]) {
-          u += a;
-          continue;
-        } else if ((r[5] || r[6]) && s % 3 && !((s + a) % 3)) {
-          p += a;
-          continue;
-        }
-        if (u -= a, u > 0)
-          continue;
-        a = Math.min(a, a + u + p);
-        let f = [...r[0]][0].length, k = e.slice(0, s + r.index + f + a);
-        if (Math.min(s, a) % 2) {
-          let g = k.slice(1, -1);
-          return { type: "em", raw: k, text: g, tokens: this.lexer.inlineTokens(g) };
-        }
-        let x = k.slice(2, -2);
-        return { type: "strong", raw: k, text: x, tokens: this.lexer.inlineTokens(x) };
-      }
-    }
-  }
-  codespan(e) {
-    let t = this.rules.inline.code.exec(e);
-    if (t) {
-      let n = t[2].replace(this.rules.other.newLineCharGlobal, " "), r = this.rules.other.nonSpaceChar.test(n), i = this.rules.other.startingSpaceChar.test(n) && this.rules.other.endingSpaceChar.test(n);
-      return r && i && (n = n.substring(1, n.length - 1)), { type: "codespan", raw: t[0], text: n };
-    }
-  }
-  br(e) {
-    let t = this.rules.inline.br.exec(e);
-    if (t)
-      return { type: "br", raw: t[0] };
-  }
-  del(e) {
-    let t = this.rules.inline.del.exec(e);
-    if (t)
-      return { type: "del", raw: t[0], text: t[2], tokens: this.lexer.inlineTokens(t[2]) };
-  }
-  autolink(e) {
-    let t = this.rules.inline.autolink.exec(e);
-    if (t) {
-      let n, r;
-      return t[2] === "@" ? (n = t[1], r = "mailto:" + n) : (n = t[1], r = n), { type: "link", raw: t[0], text: n, href: r, tokens: [{ type: "text", raw: n, text: n }] };
-    }
-  }
-  url(e) {
-    let t;
-    if (t = this.rules.inline.url.exec(e)) {
-      let n, r;
-      if (t[2] === "@")
-        n = t[0], r = "mailto:" + n;
-      else {
-        let i;
-        do
-          i = t[0], t[0] = this.rules.inline._backpedal.exec(t[0])?.[0] ?? "";
-        while (i !== t[0]);
-        n = t[0], t[1] === "www." ? r = "http://" + t[0] : r = t[0];
-      }
-      return { type: "link", raw: t[0], text: n, href: r, tokens: [{ type: "text", raw: n, text: n }] };
-    }
-  }
-  inlineText(e) {
-    let t = this.rules.inline.text.exec(e);
-    if (t) {
-      let n = this.lexer.state.inRawBlock;
-      return { type: "text", raw: t[0], text: t[0], escaped: n };
-    }
-  }
-};
-var b = class l {
-  tokens;
-  options;
-  state;
-  tokenizer;
-  inlineQueue;
-  constructor(e) {
-    this.tokens = [], this.tokens.links = Object.create(null), this.options = e || O, this.options.tokenizer = this.options.tokenizer || new y, this.tokenizer = this.options.tokenizer, this.tokenizer.options = this.options, this.tokenizer.lexer = this, this.inlineQueue = [], this.state = { inLink: false, inRawBlock: false, top: true };
-    let t = { other: m, block: I.normal, inline: M.normal };
-    this.options.pedantic ? (t.block = I.pedantic, t.inline = M.pedantic) : this.options.gfm && (t.block = I.gfm, this.options.breaks ? t.inline = M.breaks : t.inline = M.gfm), this.tokenizer.rules = t;
-  }
-  static get rules() {
-    return { block: I, inline: M };
-  }
-  static lex(e, t) {
-    return new l(t).lex(e);
-  }
-  static lexInline(e, t) {
-    return new l(t).inlineTokens(e);
-  }
-  lex(e) {
-    e = e.replace(m.carriageReturn, `
-`), this.blockTokens(e, this.tokens);
-    for (let t = 0;t < this.inlineQueue.length; t++) {
-      let n = this.inlineQueue[t];
-      this.inlineTokens(n.src, n.tokens);
-    }
-    return this.inlineQueue = [], this.tokens;
-  }
-  blockTokens(e, t = [], n = false) {
-    for (this.options.pedantic && (e = e.replace(m.tabCharGlobal, "    ").replace(m.spaceLine, ""));e; ) {
-      let r;
-      if (this.options.extensions?.block?.some((s) => (r = s.call({ lexer: this }, e, t)) ? (e = e.substring(r.raw.length), t.push(r), true) : false))
-        continue;
-      if (r = this.tokenizer.space(e)) {
-        e = e.substring(r.raw.length);
-        let s = t.at(-1);
-        r.raw.length === 1 && s !== undefined ? s.raw += `
-` : t.push(r);
-        continue;
-      }
-      if (r = this.tokenizer.code(e)) {
-        e = e.substring(r.raw.length);
-        let s = t.at(-1);
-        s?.type === "paragraph" || s?.type === "text" ? (s.raw += `
-` + r.raw, s.text += `
-` + r.text, this.inlineQueue.at(-1).src = s.text) : t.push(r);
-        continue;
-      }
-      if (r = this.tokenizer.fences(e)) {
-        e = e.substring(r.raw.length), t.push(r);
-        continue;
-      }
-      if (r = this.tokenizer.heading(e)) {
-        e = e.substring(r.raw.length), t.push(r);
-        continue;
-      }
-      if (r = this.tokenizer.hr(e)) {
-        e = e.substring(r.raw.length), t.push(r);
-        continue;
-      }
-      if (r = this.tokenizer.blockquote(e)) {
-        e = e.substring(r.raw.length), t.push(r);
-        continue;
-      }
-      if (r = this.tokenizer.list(e)) {
-        e = e.substring(r.raw.length), t.push(r);
-        continue;
-      }
-      if (r = this.tokenizer.html(e)) {
-        e = e.substring(r.raw.length), t.push(r);
-        continue;
-      }
-      if (r = this.tokenizer.def(e)) {
-        e = e.substring(r.raw.length);
-        let s = t.at(-1);
-        s?.type === "paragraph" || s?.type === "text" ? (s.raw += `
-` + r.raw, s.text += `
-` + r.raw, this.inlineQueue.at(-1).src = s.text) : this.tokens.links[r.tag] || (this.tokens.links[r.tag] = { href: r.href, title: r.title });
-        continue;
-      }
-      if (r = this.tokenizer.table(e)) {
-        e = e.substring(r.raw.length), t.push(r);
-        continue;
-      }
-      if (r = this.tokenizer.lheading(e)) {
-        e = e.substring(r.raw.length), t.push(r);
-        continue;
-      }
-      let i = e;
-      if (this.options.extensions?.startBlock) {
-        let s = 1 / 0, o = e.slice(1), a;
-        this.options.extensions.startBlock.forEach((u) => {
-          a = u.call({ lexer: this }, o), typeof a == "number" && a >= 0 && (s = Math.min(s, a));
-        }), s < 1 / 0 && s >= 0 && (i = e.substring(0, s + 1));
-      }
-      if (this.state.top && (r = this.tokenizer.paragraph(i))) {
-        let s = t.at(-1);
-        n && s?.type === "paragraph" ? (s.raw += `
-` + r.raw, s.text += `
-` + r.text, this.inlineQueue.pop(), this.inlineQueue.at(-1).src = s.text) : t.push(r), n = i.length !== e.length, e = e.substring(r.raw.length);
-        continue;
-      }
-      if (r = this.tokenizer.text(e)) {
-        e = e.substring(r.raw.length);
-        let s = t.at(-1);
-        s?.type === "text" ? (s.raw += `
-` + r.raw, s.text += `
-` + r.text, this.inlineQueue.pop(), this.inlineQueue.at(-1).src = s.text) : t.push(r);
-        continue;
-      }
-      if (e) {
-        let s = "Infinite loop on byte: " + e.charCodeAt(0);
-        if (this.options.silent) {
-          console.error(s);
-          break;
-        } else
-          throw new Error(s);
-      }
-    }
-    return this.state.top = true, t;
-  }
-  inline(e, t = []) {
-    return this.inlineQueue.push({ src: e, tokens: t }), t;
-  }
-  inlineTokens(e, t = []) {
-    let n = e, r = null;
-    if (this.tokens.links) {
-      let o = Object.keys(this.tokens.links);
-      if (o.length > 0)
-        for (;(r = this.tokenizer.rules.inline.reflinkSearch.exec(n)) != null; )
-          o.includes(r[0].slice(r[0].lastIndexOf("[") + 1, -1)) && (n = n.slice(0, r.index) + "[" + "a".repeat(r[0].length - 2) + "]" + n.slice(this.tokenizer.rules.inline.reflinkSearch.lastIndex));
-    }
-    for (;(r = this.tokenizer.rules.inline.anyPunctuation.exec(n)) != null; )
-      n = n.slice(0, r.index) + "++" + n.slice(this.tokenizer.rules.inline.anyPunctuation.lastIndex);
-    for (;(r = this.tokenizer.rules.inline.blockSkip.exec(n)) != null; )
-      n = n.slice(0, r.index) + "[" + "a".repeat(r[0].length - 2) + "]" + n.slice(this.tokenizer.rules.inline.blockSkip.lastIndex);
-    let i = false, s = "";
-    for (;e; ) {
-      i || (s = ""), i = false;
-      let o;
-      if (this.options.extensions?.inline?.some((u) => (o = u.call({ lexer: this }, e, t)) ? (e = e.substring(o.raw.length), t.push(o), true) : false))
-        continue;
-      if (o = this.tokenizer.escape(e)) {
-        e = e.substring(o.raw.length), t.push(o);
-        continue;
-      }
-      if (o = this.tokenizer.tag(e)) {
-        e = e.substring(o.raw.length), t.push(o);
-        continue;
-      }
-      if (o = this.tokenizer.link(e)) {
-        e = e.substring(o.raw.length), t.push(o);
-        continue;
-      }
-      if (o = this.tokenizer.reflink(e, this.tokens.links)) {
-        e = e.substring(o.raw.length);
-        let u = t.at(-1);
-        o.type === "text" && u?.type === "text" ? (u.raw += o.raw, u.text += o.text) : t.push(o);
-        continue;
-      }
-      if (o = this.tokenizer.emStrong(e, n, s)) {
-        e = e.substring(o.raw.length), t.push(o);
-        continue;
-      }
-      if (o = this.tokenizer.codespan(e)) {
-        e = e.substring(o.raw.length), t.push(o);
-        continue;
-      }
-      if (o = this.tokenizer.br(e)) {
-        e = e.substring(o.raw.length), t.push(o);
-        continue;
-      }
-      if (o = this.tokenizer.del(e)) {
-        e = e.substring(o.raw.length), t.push(o);
-        continue;
-      }
-      if (o = this.tokenizer.autolink(e)) {
-        e = e.substring(o.raw.length), t.push(o);
-        continue;
-      }
-      if (!this.state.inLink && (o = this.tokenizer.url(e))) {
-        e = e.substring(o.raw.length), t.push(o);
-        continue;
-      }
-      let a = e;
-      if (this.options.extensions?.startInline) {
-        let u = 1 / 0, p = e.slice(1), c;
-        this.options.extensions.startInline.forEach((f) => {
-          c = f.call({ lexer: this }, p), typeof c == "number" && c >= 0 && (u = Math.min(u, c));
-        }), u < 1 / 0 && u >= 0 && (a = e.substring(0, u + 1));
-      }
-      if (o = this.tokenizer.inlineText(a)) {
-        e = e.substring(o.raw.length), o.raw.slice(-1) !== "_" && (s = o.raw.slice(-1)), i = true;
-        let u = t.at(-1);
-        u?.type === "text" ? (u.raw += o.raw, u.text += o.text) : t.push(o);
-        continue;
-      }
-      if (e) {
-        let u = "Infinite loop on byte: " + e.charCodeAt(0);
-        if (this.options.silent) {
-          console.error(u);
-          break;
-        } else
-          throw new Error(u);
-      }
-    }
-    return t;
-  }
-};
-var P = class {
-  options;
-  parser;
-  constructor(e) {
-    this.options = e || O;
-  }
-  space(e) {
-    return "";
-  }
-  code({ text: e, lang: t, escaped: n }) {
-    let r = (t || "").match(m.notSpaceStart)?.[0], i = e.replace(m.endingNewline, "") + `
-`;
-    return r ? '<pre><code class="language-' + w(r) + '">' + (n ? i : w(i, true)) + `</code></pre>
-` : "<pre><code>" + (n ? i : w(i, true)) + `</code></pre>
-`;
-  }
-  blockquote({ tokens: e }) {
-    return `<blockquote>
-${this.parser.parse(e)}</blockquote>
-`;
-  }
-  html({ text: e }) {
-    return e;
-  }
-  heading({ tokens: e, depth: t }) {
-    return `<h${t}>${this.parser.parseInline(e)}</h${t}>
-`;
-  }
-  hr(e) {
-    return `<hr>
-`;
-  }
-  list(e) {
-    let { ordered: t, start: n } = e, r = "";
-    for (let o = 0;o < e.items.length; o++) {
-      let a = e.items[o];
-      r += this.listitem(a);
-    }
-    let i = t ? "ol" : "ul", s = t && n !== 1 ? ' start="' + n + '"' : "";
-    return "<" + i + s + `>
-` + r + "</" + i + `>
-`;
-  }
-  listitem(e) {
-    let t = "";
-    if (e.task) {
-      let n = this.checkbox({ checked: !!e.checked });
-      e.loose ? e.tokens[0]?.type === "paragraph" ? (e.tokens[0].text = n + " " + e.tokens[0].text, e.tokens[0].tokens && e.tokens[0].tokens.length > 0 && e.tokens[0].tokens[0].type === "text" && (e.tokens[0].tokens[0].text = n + " " + w(e.tokens[0].tokens[0].text), e.tokens[0].tokens[0].escaped = true)) : e.tokens.unshift({ type: "text", raw: n + " ", text: n + " ", escaped: true }) : t += n + " ";
-    }
-    return t += this.parser.parse(e.tokens, !!e.loose), `<li>${t}</li>
-`;
-  }
-  checkbox({ checked: e }) {
-    return "<input " + (e ? 'checked="" ' : "") + 'disabled="" type="checkbox">';
-  }
-  paragraph({ tokens: e }) {
-    return `<p>${this.parser.parseInline(e)}</p>
-`;
-  }
-  table(e) {
-    let t = "", n = "";
-    for (let i = 0;i < e.header.length; i++)
-      n += this.tablecell(e.header[i]);
-    t += this.tablerow({ text: n });
-    let r = "";
-    for (let i = 0;i < e.rows.length; i++) {
-      let s = e.rows[i];
-      n = "";
-      for (let o = 0;o < s.length; o++)
-        n += this.tablecell(s[o]);
-      r += this.tablerow({ text: n });
-    }
-    return r && (r = `<tbody>${r}</tbody>`), `<table>
-<thead>
-` + t + `</thead>
-` + r + `</table>
-`;
-  }
-  tablerow({ text: e }) {
-    return `<tr>
-${e}</tr>
-`;
-  }
-  tablecell(e) {
-    let t = this.parser.parseInline(e.tokens), n = e.header ? "th" : "td";
-    return (e.align ? `<${n} align="${e.align}">` : `<${n}>`) + t + `</${n}>
-`;
-  }
-  strong({ tokens: e }) {
-    return `<strong>${this.parser.parseInline(e)}</strong>`;
-  }
-  em({ tokens: e }) {
-    return `<em>${this.parser.parseInline(e)}</em>`;
-  }
-  codespan({ text: e }) {
-    return `<code>${w(e, true)}</code>`;
-  }
-  br(e) {
-    return "<br>";
-  }
-  del({ tokens: e }) {
-    return `<del>${this.parser.parseInline(e)}</del>`;
-  }
-  link({ href: e, title: t, tokens: n }) {
-    let r = this.parser.parseInline(n), i = J(e);
-    if (i === null)
-      return r;
-    e = i;
-    let s = '<a href="' + e + '"';
-    return t && (s += ' title="' + w(t) + '"'), s += ">" + r + "</a>", s;
-  }
-  image({ href: e, title: t, text: n, tokens: r }) {
-    r && (n = this.parser.parseInline(r, this.parser.textRenderer));
-    let i = J(e);
-    if (i === null)
-      return w(n);
-    e = i;
-    let s = `<img src="${e}" alt="${n}"`;
-    return t && (s += ` title="${w(t)}"`), s += ">", s;
-  }
-  text(e) {
-    return "tokens" in e && e.tokens ? this.parser.parseInline(e.tokens) : ("escaped" in e) && e.escaped ? e.text : w(e.text);
-  }
-};
-var S = class {
-  strong({ text: e }) {
-    return e;
-  }
-  em({ text: e }) {
-    return e;
-  }
-  codespan({ text: e }) {
-    return e;
-  }
-  del({ text: e }) {
-    return e;
-  }
-  html({ text: e }) {
-    return e;
-  }
-  text({ text: e }) {
-    return e;
-  }
-  link({ text: e }) {
-    return "" + e;
-  }
-  image({ text: e }) {
-    return "" + e;
-  }
-  br() {
-    return "";
-  }
-};
-var R = class l {
-  options;
-  renderer;
-  textRenderer;
-  constructor(e) {
-    this.options = e || O, this.options.renderer = this.options.renderer || new P, this.renderer = this.options.renderer, this.renderer.options = this.options, this.renderer.parser = this, this.textRenderer = new S;
-  }
-  static parse(e, t) {
-    return new l(t).parse(e);
-  }
-  static parseInline(e, t) {
-    return new l(t).parseInline(e);
-  }
-  parse(e, t = true) {
-    let n = "";
-    for (let r = 0;r < e.length; r++) {
-      let i = e[r];
-      if (this.options.extensions?.renderers?.[i.type]) {
-        let o = i, a = this.options.extensions.renderers[o.type].call({ parser: this }, o);
-        if (a !== false || !["space", "hr", "heading", "code", "table", "blockquote", "list", "html", "paragraph", "text"].includes(o.type)) {
-          n += a || "";
-          continue;
-        }
-      }
-      let s = i;
-      switch (s.type) {
-        case "space": {
-          n += this.renderer.space(s);
-          continue;
-        }
-        case "hr": {
-          n += this.renderer.hr(s);
-          continue;
-        }
-        case "heading": {
-          n += this.renderer.heading(s);
-          continue;
-        }
-        case "code": {
-          n += this.renderer.code(s);
-          continue;
-        }
-        case "table": {
-          n += this.renderer.table(s);
-          continue;
-        }
-        case "blockquote": {
-          n += this.renderer.blockquote(s);
-          continue;
-        }
-        case "list": {
-          n += this.renderer.list(s);
-          continue;
-        }
-        case "html": {
-          n += this.renderer.html(s);
-          continue;
-        }
-        case "paragraph": {
-          n += this.renderer.paragraph(s);
-          continue;
-        }
-        case "text": {
-          let o = s, a = this.renderer.text(o);
-          for (;r + 1 < e.length && e[r + 1].type === "text"; )
-            o = e[++r], a += `
-` + this.renderer.text(o);
-          t ? n += this.renderer.paragraph({ type: "paragraph", raw: a, text: a, tokens: [{ type: "text", raw: a, text: a, escaped: true }] }) : n += a;
-          continue;
-        }
-        default: {
-          let o = 'Token with "' + s.type + '" type was not found.';
-          if (this.options.silent)
-            return console.error(o), "";
-          throw new Error(o);
-        }
-      }
-    }
-    return n;
-  }
-  parseInline(e, t = this.renderer) {
-    let n = "";
-    for (let r = 0;r < e.length; r++) {
-      let i = e[r];
-      if (this.options.extensions?.renderers?.[i.type]) {
-        let o = this.options.extensions.renderers[i.type].call({ parser: this }, i);
-        if (o !== false || !["escape", "html", "link", "image", "strong", "em", "codespan", "br", "del", "text"].includes(i.type)) {
-          n += o || "";
-          continue;
-        }
-      }
-      let s = i;
-      switch (s.type) {
-        case "escape": {
-          n += t.text(s);
-          break;
-        }
-        case "html": {
-          n += t.html(s);
-          break;
-        }
-        case "link": {
-          n += t.link(s);
-          break;
-        }
-        case "image": {
-          n += t.image(s);
-          break;
-        }
-        case "strong": {
-          n += t.strong(s);
-          break;
-        }
-        case "em": {
-          n += t.em(s);
-          break;
-        }
-        case "codespan": {
-          n += t.codespan(s);
-          break;
-        }
-        case "br": {
-          n += t.br(s);
-          break;
-        }
-        case "del": {
-          n += t.del(s);
-          break;
-        }
-        case "text": {
-          n += t.text(s);
-          break;
-        }
-        default: {
-          let o = 'Token with "' + s.type + '" type was not found.';
-          if (this.options.silent)
-            return console.error(o), "";
-          throw new Error(o);
-        }
-      }
-    }
-    return n;
-  }
-};
-var $ = class {
-  options;
-  block;
-  constructor(e) {
-    this.options = e || O;
-  }
-  static passThroughHooks = new Set(["preprocess", "postprocess", "processAllTokens"]);
-  preprocess(e) {
-    return e;
-  }
-  postprocess(e) {
-    return e;
-  }
-  processAllTokens(e) {
-    return e;
-  }
-  provideLexer() {
-    return this.block ? b.lex : b.lexInline;
-  }
-  provideParser() {
-    return this.block ? R.parse : R.parseInline;
-  }
-};
-var B = class {
-  defaults = L();
-  options = this.setOptions;
-  parse = this.parseMarkdown(true);
-  parseInline = this.parseMarkdown(false);
-  Parser = R;
-  Renderer = P;
-  TextRenderer = S;
-  Lexer = b;
-  Tokenizer = y;
-  Hooks = $;
-  constructor(...e) {
-    this.use(...e);
-  }
-  walkTokens(e, t) {
-    let n = [];
-    for (let r of e)
-      switch (n = n.concat(t.call(this, r)), r.type) {
-        case "table": {
-          let i = r;
-          for (let s of i.header)
-            n = n.concat(this.walkTokens(s.tokens, t));
-          for (let s of i.rows)
-            for (let o of s)
-              n = n.concat(this.walkTokens(o.tokens, t));
-          break;
-        }
-        case "list": {
-          let i = r;
-          n = n.concat(this.walkTokens(i.items, t));
-          break;
-        }
-        default: {
-          let i = r;
-          this.defaults.extensions?.childTokens?.[i.type] ? this.defaults.extensions.childTokens[i.type].forEach((s) => {
-            let o = i[s].flat(1 / 0);
-            n = n.concat(this.walkTokens(o, t));
-          }) : i.tokens && (n = n.concat(this.walkTokens(i.tokens, t)));
-        }
-      }
-    return n;
-  }
-  use(...e) {
-    let t = this.defaults.extensions || { renderers: {}, childTokens: {} };
-    return e.forEach((n) => {
-      let r = { ...n };
-      if (r.async = this.defaults.async || r.async || false, n.extensions && (n.extensions.forEach((i) => {
-        if (!i.name)
-          throw new Error("extension name required");
-        if ("renderer" in i) {
-          let s = t.renderers[i.name];
-          s ? t.renderers[i.name] = function(...o) {
-            let a = i.renderer.apply(this, o);
-            return a === false && (a = s.apply(this, o)), a;
-          } : t.renderers[i.name] = i.renderer;
-        }
-        if ("tokenizer" in i) {
-          if (!i.level || i.level !== "block" && i.level !== "inline")
-            throw new Error("extension level must be 'block' or 'inline'");
-          let s = t[i.level];
-          s ? s.unshift(i.tokenizer) : t[i.level] = [i.tokenizer], i.start && (i.level === "block" ? t.startBlock ? t.startBlock.push(i.start) : t.startBlock = [i.start] : i.level === "inline" && (t.startInline ? t.startInline.push(i.start) : t.startInline = [i.start]));
-        }
-        "childTokens" in i && i.childTokens && (t.childTokens[i.name] = i.childTokens);
-      }), r.extensions = t), n.renderer) {
-        let i = this.defaults.renderer || new P(this.defaults);
-        for (let s in n.renderer) {
-          if (!(s in i))
-            throw new Error(`renderer '${s}' does not exist`);
-          if (["options", "parser"].includes(s))
-            continue;
-          let o = s, a = n.renderer[o], u = i[o];
-          i[o] = (...p) => {
-            let c = a.apply(i, p);
-            return c === false && (c = u.apply(i, p)), c || "";
-          };
-        }
-        r.renderer = i;
-      }
-      if (n.tokenizer) {
-        let i = this.defaults.tokenizer || new y(this.defaults);
-        for (let s in n.tokenizer) {
-          if (!(s in i))
-            throw new Error(`tokenizer '${s}' does not exist`);
-          if (["options", "rules", "lexer"].includes(s))
-            continue;
-          let o = s, a = n.tokenizer[o], u = i[o];
-          i[o] = (...p) => {
-            let c = a.apply(i, p);
-            return c === false && (c = u.apply(i, p)), c;
-          };
-        }
-        r.tokenizer = i;
-      }
-      if (n.hooks) {
-        let i = this.defaults.hooks || new $;
-        for (let s in n.hooks) {
-          if (!(s in i))
-            throw new Error(`hook '${s}' does not exist`);
-          if (["options", "block"].includes(s))
-            continue;
-          let o = s, a = n.hooks[o], u = i[o];
-          $.passThroughHooks.has(s) ? i[o] = (p) => {
-            if (this.defaults.async)
-              return Promise.resolve(a.call(i, p)).then((f) => u.call(i, f));
-            let c = a.call(i, p);
-            return u.call(i, c);
-          } : i[o] = (...p) => {
-            let c = a.apply(i, p);
-            return c === false && (c = u.apply(i, p)), c;
-          };
-        }
-        r.hooks = i;
-      }
-      if (n.walkTokens) {
-        let i = this.defaults.walkTokens, s = n.walkTokens;
-        r.walkTokens = function(o) {
-          let a = [];
-          return a.push(s.call(this, o)), i && (a = a.concat(i.call(this, o))), a;
-        };
-      }
-      this.defaults = { ...this.defaults, ...r };
-    }), this;
-  }
-  setOptions(e) {
-    return this.defaults = { ...this.defaults, ...e }, this;
-  }
-  lexer(e, t) {
-    return b.lex(e, t ?? this.defaults);
-  }
-  parser(e, t) {
-    return R.parse(e, t ?? this.defaults);
-  }
-  parseMarkdown(e) {
-    return (n, r) => {
-      let i = { ...r }, s = { ...this.defaults, ...i }, o = this.onError(!!s.silent, !!s.async);
-      if (this.defaults.async === true && i.async === false)
-        return o(new Error("marked(): The async option was set to true by an extension. Remove async: false from the parse options object to return a Promise."));
-      if (typeof n > "u" || n === null)
-        return o(new Error("marked(): input parameter is undefined or null"));
-      if (typeof n != "string")
-        return o(new Error("marked(): input parameter is of type " + Object.prototype.toString.call(n) + ", string expected"));
-      s.hooks && (s.hooks.options = s, s.hooks.block = e);
-      let a = s.hooks ? s.hooks.provideLexer() : e ? b.lex : b.lexInline, u = s.hooks ? s.hooks.provideParser() : e ? R.parse : R.parseInline;
-      if (s.async)
-        return Promise.resolve(s.hooks ? s.hooks.preprocess(n) : n).then((p) => a(p, s)).then((p) => s.hooks ? s.hooks.processAllTokens(p) : p).then((p) => s.walkTokens ? Promise.all(this.walkTokens(p, s.walkTokens)).then(() => p) : p).then((p) => u(p, s)).then((p) => s.hooks ? s.hooks.postprocess(p) : p).catch(o);
-      try {
-        s.hooks && (n = s.hooks.preprocess(n));
-        let p = a(n, s);
-        s.hooks && (p = s.hooks.processAllTokens(p)), s.walkTokens && this.walkTokens(p, s.walkTokens);
-        let c = u(p, s);
-        return s.hooks && (c = s.hooks.postprocess(c)), c;
-      } catch (p) {
-        return o(p);
-      }
-    };
-  }
-  onError(e, t) {
-    return (n) => {
-      if (n.message += `
-Please report this to https://github.com/markedjs/marked.`, e) {
-        let r = "<p>An error occurred:</p><pre>" + w(n.message + "", true) + "</pre>";
-        return t ? Promise.resolve(r) : r;
-      }
-      if (t)
-        return Promise.reject(n);
-      throw n;
-    };
-  }
-};
-var _ = new B;
-function d(l, e) {
-  return _.parse(l, e);
-}
-d.options = d.setOptions = function(l) {
-  return _.setOptions(l), d.defaults = _.defaults, H(d.defaults), d;
-};
-d.getDefaults = L;
-d.defaults = O;
-d.use = function(...l) {
-  return _.use(...l), d.defaults = _.defaults, H(d.defaults), d;
-};
-d.walkTokens = function(l, e) {
-  return _.walkTokens(l, e);
-};
-d.parseInline = _.parseInline;
-d.Parser = R;
-d.parser = R.parse;
-d.Renderer = P;
-d.TextRenderer = S;
-d.Lexer = b;
-d.lexer = b.lex;
-d.Tokenizer = y;
-d.Hooks = $;
-d.parse = d;
-var Dt = d.options;
-var Zt = d.setOptions;
-var Gt = d.use;
-var Ht = d.walkTokens;
-var Nt = d.parseInline;
-var Ft = R.parse;
-var Qt = b.lex;
-
-// plugins/artifact-design/skills/artifact-design/scripts/markdown-template.html
-var markdown_template_default = `<!--
-name: plan
-description: Implementation plans, technical designs, RFCs, and architecture proposals — a phased document with context, approach, and verification sections.
-fill contract: the automatic publish path (src/frame/planArtifactHtml.ts) fills this
-  mechanically — {{TITLE}}, {{TAB_TITLE}}, {{EYEBROW}}, and {{SUMMARY}} are replaced
-  by a fixed regex ({{TAB_TITLE}} is the <title> element; .md-file publishes keep the
-  filename there while the h1 shows the document heading),
-  and everything from the first <section> through the LAST </section> is replaced
-  wholesale by the rendered plan body. Keep those four slots and the section run, and
-  put nothing after the last </section> except </article>; tests in
-  test/frame/planArtifactHtml.test.ts assert this shape.
-style: tokens come from @ant/cds's own vanilla export, embedded verbatim
-  (a published artifact is standalone, so the generated tokens.vanilla.css is
-  vendored and inlined rather than imported; a drift test keeps it canonical).
-  Typography is deliberately a plain system stack — no Anthropic brand fonts
-  and no serif voice — and the light background is white rather than the
-  CDS cream surface-0; those are the deliberate deviations from CDS values.
-  Dark mode keys off both theme axes: prefers-color-scheme, and the viewer
-  toggle's data-theme root stamp (mirrored onto data-mode by the script
-  below so the vendored token block's own toggle selectors serve it).
--->
-<title>{{TAB_TITLE}}</title>
-<script>
-  /* The viewer toggle stamps data-theme on the root element; the vendored
-     CDS token block below keys its toggle axis on data-mode (the CDS
-     convention) and cannot be edited (provenance-tested byte-identical).
-     Mirroring the attribute lets that block serve the viewer toggle with
-     its own precedence rules — toggle beats OS in both directions. Static,
-     no author bytes. Without JS the toggle axis is inert and the OS axis
-     (pure CSS) still themes the page. */
-  (function () {
-    var root = document.documentElement;
-    var sync = function () {
-      var t = root.getAttribute('data-theme');
-      if (t) root.setAttribute('data-mode', t);
-      else root.removeAttribute('data-mode');
-    };
-    sync();
-    if (typeof MutationObserver !== 'undefined') {
-      new MutationObserver(sync).observe(root, {
-        attributes: true,
-        attributeFilter: ['data-theme'],
-      });
-    }
-  })();
-</script>
-<style>
-  /* ===== BEGIN vendored @ant/cds tokens (src/frame/cdsTokens.vanilla.generated.css) =====
-     Byte-identical to that file (drift-tested in test/frame/planArtifactHtml.test.ts).
-     Do not edit this block: refresh the vendored file from @ant/cds and re-embed. */
-/*
- * VENDORED — verbatim copy of @ant/cds tokens.vanilla.css (the CDS team's
- * framework-agnostic token export) from anthropics/apps@230786b7e9757b07527ac4283db9b19676a8ae91
- * (packages/cds/src/generated/tokens.vanilla.css).
- * upstream-sha256: 94f136cf38cc5f54c1b6dda76677c466b122f6b7e6f8702ef18774cbc7643152
- *   (sha256 of everything below this header comment, i.e. of the raw
- *   upstream file — recomputed and asserted by the "provenance hash"
- *   test, so a refresh that swaps bytes without updating this line
- *   fails CI rather than shipping a lying header.)
- *
- * Browser floor: the export uses hsl(from …) and color-mix() — ~Chrome 119 /
- * Safari 16.4. On older viewers the consuming declarations are dropped
- * SILENTLY (no error, no telemetry): borders, the alpha ramp, and dark
- * surfaces degrade. This line is the triage breadcrumb for "published
- * artifact looks broken" reports — ask the browser version first.
- *
- * The templates listed in scripts/embed-cds-tokens.ts embed this file
- * byte-for-byte between BEGIN/END markers; drift tests assert the copies
- * stay identical. To refresh: copy the upstream generated file below this
- * header, update the commit hash and upstream-sha256 above, run
- * \`bun scripts/embed-cds-tokens.ts\`, then \`bun test
- * test/frame/planArtifactHtml.test.ts\` (see that script's header for the rest).
- */
-
-/**
- * GENERATED — do not edit. Run \`yarn workspace @ant/cds gen:tokens\`.
- *
- * Framework-agnostic CDS token export: unprefixed \`--*\` custom
- * properties under \`:root\`, with dark-mode overrides under
- * \`[data-mode="dark"]\` and \`@media (prefers-color-scheme: dark)\`.
- * No \`.cds-root\` scoping, density steps, or component-private tokens.
- *
- * Source: \`packages/cds/tokens/\`. For the full React/Tailwind build
- * (scoped under \`.cds-root\`), see \`tokens.css\`.
- */
-
-:root {
-  --radius: 8px;
-  --h-control: 32px;
-  --h-control-nested: 22px;
-  --icon: 20px;
-  --pad-sm: 8px;
-  --pad-md: 12px;
-  --pad-lg: 16px;
-  --pad-xl: 24px;
-  --gap-xs: 8px;
-  --gap-sm: 12px;
-  --gap-md: 16px;
-  --gap-lg: 28px;
-  --gap-xl: 40px;
-  --outset-x: 0px;
-  --outset-y: 0px;
-  --border: var(--alpha-2);
-  --border-accent: var(--blue-250);
-  --border-danger: var(--red-250);
-  --border-success: var(--green-250);
-  --border-warning: var(--yellow-250);
-  --border-pro: var(--violet-250);
-  --border-git-added: color-mix(in srgb, var(--text-git-added) 40%, transparent);
-  --border-git-removed: color-mix(in srgb, var(--text-git-removed) 40%, transparent);
-  --border-git-modified: color-mix(in srgb, var(--text-git-modified) 40%, transparent);
-  --border-git-merged: color-mix(in srgb, var(--text-git-merged) 40%, transparent);
-  --border-git-closed: color-mix(in srgb, var(--text-git-closed) 40%, transparent);
-  --border-git-conflicting: color-mix(in srgb, var(--text-git-conflicting) 40%, transparent);
-  --border-git-draft: color-mix(in srgb, var(--text-git-draft) 40%, transparent);
-  --border-git-opened: var(--border-git-added);
-  --border-git-queued: var(--border-git-modified);
-  --border-strong: var(--alpha-3);
-  --border-stronger: hsl(from var(--neutral-900) h s l / 40%);
-  --shadow-sm: 0 1px 2px 0 hsl(from var(--gray-900) h s l / 6%), 0 2px 8px 0 var(--shadow-color);
-  --shadow-md: 0 2px 4px 0 hsl(from var(--gray-900) h s l / 7%), 0 6px 16px 0 var(--shadow-color);
-  --shadow-lg: 0 4px 8px 0 hsl(from var(--gray-900) h s l / 8%), 0 12px 28px -2px var(--shadow-color);
-  --shadow-color: hsl(from var(--gray-900) h s l / 8%);
-  --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.08);
-  --ring-outer: 1px;
-  --ring-inner: 0px;
-  --ring-color: var(--border);
-  --focus-shadow: inset 0 0 0 1px var(--page-bg), 0 0 0 1px var(--fill-accent), 0 0 6px 1px var(--bg-accent);
-  --font-mono: var(--font-anthropic-mono, "Anthropic Mono Variable"), "Anthropic Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
-  --font-system: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-sans: var(--font-anthropic-sans, "Anthropic Sans Variable", "Anthropic Sans"), var(--font-system);
-  --font-voice: var(--font-anthropic-serif, "Anthropic Serif Variable", "Anthropic Serif"), ui-serif, Georgia, "Times New Roman", serif;
-  --ease-out: cubic-bezier(0.165, 0.84, 0.44, 1);
-  --ease-snap: cubic-bezier(0.32, 0.72, 0, 1);
-  --ease-overshoot: cubic-bezier(0.34, 1.3, 0.64, 1);
-  --dur-fast: 60ms;
-  --dur-snap: 120ms;
-  --dur-base: 200ms;
-  --dur-slow: 450ms;
-  --btn-spring: linear(0, 0.2459, 0.6526, 0.9468, 1.0764, 1.0915, 1.0585, 1.0219, 0.9993, 0.9914, 0.9921, 0.9957, 0.9988, 1.0004, 1);
-  --black: #000000;
-  --oncolor-200: hsl(60 6.7% 97.1% / 0.75);
-  --oncolor-300: hsl(60 6.7% 97.1% / 0.5);
-  --clay: #d97757;
-  --clay-emphasized: #c6613f;
-  --heather: #cbcadb;
-  --plum: #827dbd;
-  --cactus: #bcd1ca;
-  --mineral: #629987;
-  --peach: #ebc9b7;
-  --gray-0: #ffffff;
-  --gray-10: #fcfcfb;
-  --gray-20: #f9f9f7;
-  --gray-30: #f6f6f4;
-  --gray-40: #f3f3f0;
-  --gray-50: #f0efec;
-  --gray-60: #edece8;
-  --gray-70: #eae9e4;
-  --gray-80: #e7e6e1;
-  --gray-90: #e4e3dd;
-  --gray-100: #e1e0d9;
-  --gray-150: #d2d1c7;
-  --gray-200: #c3c2b7;
-  --gray-250: #b4b3a8;
-  --gray-300: #a5a49a;
-  --gray-350: #97958d;
-  --gray-400: #898781;
-  --gray-450: #7b7974;
-  --gray-500: #6d6b67;
-  --gray-550: #5f5e5a;
-  --gray-600: #52514e;
-  --gray-650: #454442;
-  --gray-700: #383835;
-  --gray-750: #2c2c2a;
-  --gray-800: #20201f;
-  --gray-810: #1e1e1d;
-  --gray-820: #1c1c1b;
-  --gray-830: #1a1a19;
-  --gray-840: #181817;
-  --gray-850: #151515;
-  --gray-860: #131313;
-  --gray-870: #111111;
-  --gray-880: #0f0f0f;
-  --gray-890: #0d0d0d;
-  --gray-900: #0b0b0b;
-  --red-0: #ffffff;
-  --red-10: #fffbfb;
-  --red-20: #fef7f7;
-  --red-30: #fef3f3;
-  --red-40: #fdefef;
-  --red-50: #fbebeb;
-  --red-60: #fae7e7;
-  --red-70: #fae3e3;
-  --red-80: #fadfdf;
-  --red-90: #fadada;
-  --red-100: #fad6d6;
-  --red-150: #f7c1c1;
-  --red-200: #f4abab;
-  --red-250: #f09595;
-  --red-300: #ec7e7e;
-  --red-350: #e66767;
-  --red-400: #e34948;
-  --red-450: #d03b3b;
-  --red-500: #b93535;
-  --red-550: #a32c2c;
-  --red-600: #8e2626;
-  --red-650: #791e1e;
-  --red-700: #641919;
-  --red-750: #511212;
-  --red-800: #3c0e0e;
-  --red-810: #380d0d;
-  --red-820: #340c0c;
-  --red-830: #310b0b;
-  --red-840: #2d0a0a;
-  --red-850: #280a0a;
-  --red-860: #230b0a;
-  --red-870: #1d0b0a;
-  --red-880: #170c0b;
-  --red-890: #110c0b;
-  --red-900: #0b0b0b;
-  --orange-0: #ffffff;
-  --orange-10: #fefbfa;
-  --orange-20: #fdf7f5;
-  --orange-30: #fcf4f0;
-  --orange-40: #faf0ec;
-  --orange-50: #f9ece7;
-  --orange-60: #f8e9e2;
-  --orange-70: #f7e5dd;
-  --orange-80: #f7e1d7;
-  --orange-90: #f7dcd1;
-  --orange-100: #f7d8cb;
-  --orange-150: #f3c5b2;
-  --orange-200: #f4ae94;
-  --orange-250: #f09978;
-  --orange-300: #ec835a;
-  --orange-350: #eb6834;
-  --orange-400: #d95926;
-  --orange-450: #c25124;
-  --orange-500: #ae461c;
-  --orange-550: #993d19;
-  --orange-600: #863311;
-  --orange-650: #712b0f;
-  --orange-700: #5d230b;
-  --orange-750: #4b1b08;
-  --orange-800: #371407;
-  --orange-810: #341307;
-  --orange-820: #301106;
-  --orange-830: #2d1006;
-  --orange-840: #290f06;
-  --orange-850: #240e07;
-  --orange-860: #1f0e08;
-  --orange-870: #1a0e09;
-  --orange-880: #150d0a;
-  --orange-890: #100c0b;
-  --orange-900: #0b0b0b;
-  --yellow-0: #ffffff;
-  --yellow-10: #fefcf8;
-  --yellow-20: #fcf8f1;
-  --yellow-30: #fbf5ea;
-  --yellow-40: #f9f2e4;
-  --yellow-50: #f9eeda;
-  --yellow-60: #faebce;
-  --yellow-70: #fae7c2;
-  --yellow-80: #fae3b8;
-  --yellow-90: #f9e0b0;
-  --yellow-100: #f9dca4;
-  --yellow-150: #f9c868;
-  --yellow-200: #fab219;
-  --yellow-250: #eda100;
-  --yellow-300: #db9300;
-  --yellow-350: #c98500;
-  --yellow-400: #b77700;
-  --yellow-450: #a66a00;
-  --yellow-500: #945d00;
-  --yellow-550: #835100;
-  --yellow-600: #734500;
-  --yellow-650: #623900;
-  --yellow-700: #512e00;
-  --yellow-750: #412400;
-  --yellow-800: #311a00;
-  --yellow-810: #2e1800;
-  --yellow-820: #2b1700;
-  --yellow-830: #271500;
-  --yellow-840: #231402;
-  --yellow-850: #1f1204;
-  --yellow-860: #1b1106;
-  --yellow-870: #171007;
-  --yellow-880: #130e09;
-  --yellow-890: #0f0d0a;
-  --yellow-900: #0b0b0b;
-  --green-0: #ffffff;
-  --green-10: #fafdfa;
-  --green-20: #f5fbf4;
-  --green-30: #f0f9ef;
-  --green-40: #ebf7e9;
-  --green-50: #e5f4e4;
-  --green-60: #e0f2de;
-  --green-70: #dbf0d8;
-  --green-80: #d5eed3;
-  --green-90: #d0eccd;
-  --green-100: #caeac7;
-  --green-150: #aee0a9;
-  --green-200: #91d68b;
-  --green-250: #73cb6d;
-  --green-300: #55bf50;
-  --green-350: #35b231;
-  --green-400: #0ca30c;
-  --green-450: #009300;
-  --green-500: #008300;
-  --green-550: #007300;
-  --green-600: #006300;
-  --green-650: #005400;
-  --green-700: #074506;
-  --green-750: #0f350d;
-  --green-800: #11260f;
-  --green-810: #10230f;
-  --green-820: #10210f;
-  --green-830: #101e0f;
-  --green-840: #101b0f;
-  --green-850: #0f180e;
-  --green-860: #0e160e;
-  --green-870: #0e130d;
-  --green-880: #0d100d;
-  --green-890: #0c0e0c;
-  --green-900: #0b0b0b;
-  --aqua-0: #ffffff;
-  --aqua-10: #f9fdfb;
-  --aqua-20: #f3fbf8;
-  --aqua-30: #edf9f4;
-  --aqua-40: #e8f7f1;
-  --aqua-50: #e2f4ed;
-  --aqua-60: #dcf2ea;
-  --aqua-70: #d5f0e6;
-  --aqua-80: #ceefe2;
-  --aqua-90: #c7eddf;
-  --aqua-100: #bfebdb;
-  --aqua-150: #a0e1c9;
-  --aqua-200: #7ad7b4;
-  --aqua-250: #5acba0;
-  --aqua-300: #3bbd8c;
-  --aqua-350: #1baf7a;
-  --aqua-400: #199e70;
-  --aqua-450: #138e65;
-  --aqua-500: #0f7e5c;
-  --aqua-550: #0e6e53;
-  --aqua-600: #065f49;
-  --aqua-650: #095040;
-  --aqua-700: #034235;
-  --aqua-750: #02342b;
-  --aqua-800: #022720;
-  --aqua-810: #02241e;
-  --aqua-820: #02221c;
-  --aqua-830: #021f1a;
-  --aqua-840: #031c18;
-  --aqua-850: #051a16;
-  --aqua-860: #071713;
-  --aqua-870: #081411;
-  --aqua-880: #0a110f;
-  --aqua-890: #0b0e0d;
-  --aqua-900: #0b0b0b;
-  --blue-0: #ffffff;
-  --blue-10: #fafcff;
-  --blue-20: #f5f9fe;
-  --blue-30: #f0f7fe;
-  --blue-40: #ebf4fc;
-  --blue-50: #e7f1fb;
-  --blue-60: #e2eefa;
-  --blue-70: #ddebfa;
-  --blue-80: #d7e8fa;
-  --blue-90: #d2e5fa;
-  --blue-100: #cde2fb;
-  --blue-150: #b7d3f6;
-  --blue-200: #9ec5f4;
-  --blue-250: #86b6ef;
-  --blue-300: #6da7ec;
-  --blue-350: #5598e7;
-  --blue-400: #3987e5;
-  --blue-450: #2a78d6;
-  --blue-500: #256abf;
-  --blue-550: #1c5cab;
-  --blue-600: #184f95;
-  --blue-650: #104281;
-  --blue-700: #0d366b;
-  --blue-750: #062b57;
-  --blue-800: #032042;
-  --blue-810: #031e3d;
-  --blue-820: #021c39;
-  --blue-830: #021a36;
-  --blue-840: #021831;
-  --blue-850: #03162c;
-  --blue-860: #051426;
-  --blue-870: #07121f;
-  --blue-880: #091018;
-  --blue-890: #0a0d11;
-  --blue-900: #0b0b0b;
-  --violet-0: #ffffff;
-  --violet-10: #fcfbff;
-  --violet-20: #f8f8ff;
-  --violet-30: #f5f4ff;
-  --violet-40: #f2f1ff;
-  --violet-50: #efedff;
-  --violet-60: #ebeafe;
-  --violet-70: #e8e6fe;
-  --violet-80: #e5e2fd;
-  --violet-90: #e2dffd;
-  --violet-100: #dfdbfd;
-  --violet-150: #cfcafb;
-  --violet-200: #bfb9f5;
-  --violet-250: #b0a7f2;
-  --violet-300: #a096eb;
-  --violet-350: #9085e9;
-  --violet-400: #8173e3;
-  --violet-450: #7161e0;
-  --violet-500: #6250d6;
-  --violet-550: #5645be;
-  --violet-600: #4a3aa7;
-  --violet-650: #3e318e;
-  --violet-700: #322777;
-  --violet-750: #271e60;
-  --violet-800: #1d1649;
-  --violet-810: #1b1544;
-  --violet-820: #19133f;
-  --violet-830: #17123b;
-  --violet-840: #151036;
-  --violet-850: #130f32;
-  --violet-860: #110e2b;
-  --violet-870: #0f0e23;
-  --violet-880: #0e0d1b;
-  --violet-890: #0c0c13;
-  --violet-900: #0b0b0b;
-  --magenta-0: #ffffff;
-  --magenta-10: #fefbfc;
-  --magenta-20: #fef6f9;
-  --magenta-30: #fdf2f6;
-  --magenta-40: #fbeff3;
-  --magenta-50: #faebf0;
-  --magenta-60: #f9e6ed;
-  --magenta-70: #f9e2eb;
-  --magenta-80: #f9dee8;
-  --magenta-90: #f9d9e5;
-  --magenta-100: #f9d4e2;
-  --magenta-150: #f3c0d3;
-  --magenta-200: #f3a8c3;
-  --magenta-250: #ed93b4;
-  --magenta-300: #e87ba4;
-  --magenta-350: #e46191;
-  --magenta-400: #d55181;
-  --magenta-450: #c04873;
-  --magenta-500: #ad3d66;
-  --magenta-550: #993458;
-  --magenta-600: #862a4c;
-  --magenta-650: #722340;
-  --magenta-700: #5e1c34;
-  --magenta-750: #4c1429;
-  --magenta-800: #390f1f;
-  --magenta-810: #360d1c;
-  --magenta-820: #320c1a;
-  --magenta-830: #2f0b18;
-  --magenta-840: #2b0a16;
-  --magenta-850: #270a14;
-  --magenta-860: #220a12;
-  --magenta-870: #1c0b11;
-  --magenta-880: #170b0f;
-  --magenta-890: #110b0d;
-  --magenta-900: #0b0b0b;
-  --pictogram-highlight-default: var(--gray-80);
-  --pictogram-highlight-heather: var(--heather);
-  --pictogram-highlight-cactus: var(--cactus);
-  --pictogram-highlight-peach: var(--peach);
-  --cursor-interactive: pointer;
-  --neutral-0: var(--gray-0);
-  --neutral-10: var(--gray-10);
-  --neutral-20: var(--gray-20);
-  --neutral-30: var(--gray-30);
-  --neutral-40: var(--gray-40);
-  --neutral-50: var(--gray-50);
-  --neutral-60: var(--gray-60);
-  --neutral-70: var(--gray-70);
-  --neutral-80: var(--gray-80);
-  --neutral-90: var(--gray-90);
-  --neutral-100: var(--gray-100);
-  --neutral-150: var(--gray-150);
-  --neutral-200: var(--gray-200);
-  --neutral-250: var(--gray-250);
-  --neutral-300: var(--gray-300);
-  --neutral-350: var(--gray-350);
-  --neutral-400: var(--gray-400);
-  --neutral-450: var(--gray-450);
-  --neutral-500: var(--gray-500);
-  --neutral-550: var(--gray-550);
-  --neutral-600: var(--gray-600);
-  --neutral-650: var(--gray-650);
-  --neutral-700: var(--gray-700);
-  --neutral-750: var(--gray-750);
-  --neutral-800: var(--gray-800);
-  --neutral-810: var(--gray-810);
-  --neutral-820: var(--gray-820);
-  --neutral-830: var(--gray-830);
-  --neutral-840: var(--gray-840);
-  --neutral-850: var(--gray-850);
-  --neutral-860: var(--gray-860);
-  --neutral-870: var(--gray-870);
-  --neutral-880: var(--gray-880);
-  --neutral-890: var(--gray-890);
-  --neutral-900: var(--gray-900);
-  --alpha-0: hsl(from var(--neutral-900) h s l / 0%);
-  --alpha-1: hsl(from var(--neutral-900) h s l / 5%);
-  --alpha-2: hsl(from var(--neutral-900) h s l / 10%);
-  --alpha-3: hsl(from var(--neutral-900) h s l / 20%);
-  --alpha-4: hsl(from var(--neutral-900) h s l / 35%);
-  --alpha-5: hsl(from var(--neutral-900) h s l / 50%);
-  --alpha-6: hsl(from var(--neutral-900) h s l / 60%);
-  --alpha-7: hsl(from var(--neutral-900) h s l / 70%);
-  --alpha-8: hsl(from var(--neutral-900) h s l / 85%);
-  --alpha-9: hsl(from var(--neutral-900) h s l / 95%);
-  --surface-0: var(--gray-20);
-  --surface-1: var(--gray-10);
-  --surface-2: var(--gray-0);
-  --surface-3: var(--gray-0);
-  --surface-popover: var(--surface-3);
-  --surface-panel: var(--surface-2);
-  --page-bg: var(--surface-0);
-  --fill-accent: var(--blue-450);
-  --fill-accent-hover: var(--blue-400);
-  --fill-danger: var(--red-450);
-  --fill-danger-hover: var(--red-400);
-  --fill-success: var(--green-450);
-  --fill-success-hover: var(--green-400);
-  --fill-warning: var(--yellow-200);
-  --fill-warning-hover: var(--yellow-250);
-  --fill-pro: var(--violet-450);
-  --fill-pro-hover: var(--violet-400);
-  --fill-git-added: #1a8633;
-  --fill-git-added-hover: #1e9b3b;
-  --fill-git-removed: var(--text-git-removed);
-  --fill-git-removed-hover: #de295f;
-  --fill-git-modified: #8b751c;
-  --fill-git-modified-hover: #a08720;
-  --fill-git-merged: #855fd6;
-  --fill-git-merged-hover: #9473db;
-  --fill-git-closed: #ed0b00;
-  --fill-git-closed-hover: #ff1307;
-  --fill-git-conflicting: #b85b19;
-  --fill-git-conflicting-hover: #c5621b;
-  --fill-git-draft: var(--text-git-draft);
-  --fill-git-draft-hover: #808080;
-  --fill-git-opened: var(--fill-git-added);
-  --fill-git-opened-hover: var(--fill-git-added-hover);
-  --fill-git-queued: var(--fill-git-modified);
-  --fill-git-queued-hover: var(--fill-git-modified-hover);
-  --fill-brand: var(--clay-emphasized);
-  --fill-brand-hover: var(--clay);
-  --fill-primary: var(--neutral-900);
-  --fill-primary-hover: var(--neutral-750);
-  --fill-secondary: hsl(0 0% 100% / 0.1);
-  --fill-secondary-hover: var(--alpha-1);
-  --fill-secondary-ring: var(--border);
-  --fill-field: hsl(0 0% 100% / 0.5);
-  --fill-ghost-hover: var(--alpha-1);
-  --fill-disabled: var(--alpha-1);
-  --fill-control: var(--alpha-2);
-  --fill-control-hover: var(--alpha-3);
-  --bg-accent: var(--blue-100);
-  --bg-danger: var(--red-100);
-  --bg-success: var(--green-100);
-  --bg-warning: var(--yellow-100);
-  --bg-pro: var(--violet-100);
-  --bg-git-added: color-mix(in srgb, var(--text-git-added) 20%, transparent);
-  --bg-git-removed: color-mix(in srgb, var(--text-git-removed) 20%, transparent);
-  --bg-git-modified: color-mix(in srgb, var(--text-git-modified) 20%, transparent);
-  --bg-git-merged: color-mix(in srgb, var(--text-git-merged) 20%, transparent);
-  --bg-git-closed: color-mix(in srgb, var(--text-git-closed) 20%, transparent);
-  --bg-git-conflicting: color-mix(in srgb, var(--text-git-conflicting) 20%, transparent);
-  --bg-git-draft: color-mix(in srgb, var(--text-git-draft) 20%, transparent);
-  --bg-git-opened: var(--bg-git-added);
-  --bg-git-queued: var(--bg-git-modified);
-  --bg-neutral: var(--alpha-1);
-  --bg-neutral-hover: var(--alpha-2);
-  --backdrop: rgb(0 0 0 / 0.4);
-  --text-accent: var(--blue-600);
-  --text-danger: var(--red-600);
-  --text-success: var(--green-600);
-  --text-warning: var(--yellow-600);
-  --text-pro: var(--violet-600);
-  --text-git-added: #1e9e3c;
-  --text-git-removed: #cd2054;
-  --text-git-modified: #98801f;
-  --text-git-merged: #8e6bd9;
-  --text-git-closed: #ff3a30;
-  --text-git-conflicting: #c5621b;
-  --text-git-draft: #737373;
-  --text-git-opened: var(--text-git-added);
-  --text-git-queued: var(--text-git-modified);
-  --text-primary: var(--neutral-900);
-  --text-secondary: var(--neutral-600);
-  --text-muted: var(--neutral-400);
-  --text-disabled: var(--alpha-4);
-  --font-size-caption: 12px;
-  --font-size-footnote: 13px;
-  --font-size-code: 13px;
-  --font-size-body: 14px;
-  --font-size-heading: 15px;
-  --font-size-title: 22px;
-  --font-weight-regular: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-  --leading-caption: 14px;
-  --leading-footnote: 16px;
-  --leading-code: 19px;
-  --leading-body: 20px;
-  --leading-heading: 20px;
-  --leading-title: 26px;
-  --on-primary: var(--neutral-0);
-  --on-accent: var(--gray-0);
-  --on-danger: var(--gray-0);
-  --on-success: var(--gray-900);
-  --on-warning: var(--gray-900);
-  --on-pro: var(--gray-0);
-  --on-git-added: var(--gray-0);
-  --on-git-removed: var(--gray-0);
-  --on-git-modified: var(--gray-0);
-  --on-git-merged: var(--gray-0);
-  --on-git-closed: var(--gray-0);
-  --on-git-conflicting: var(--gray-0);
-  --on-git-draft: var(--gray-0);
-  --on-git-opened: var(--on-git-added);
-  --on-git-queued: var(--on-git-modified);
-  --on-brand: var(--gray-0);
-  --z-modal: 40;
-  --z-coachmark: 35;
-  --z-popover: 50;
-  --z-tooltip: 50;
-  --z-toast: 60;
-}
-
-[data-mode="dark"] {
-  --border-accent: var(--blue-700);
-  --border-danger: var(--red-700);
-  --border-success: var(--green-700);
-  --border-warning: var(--yellow-700);
-  --border-pro: var(--violet-700);
-  --shadow-color: hsl(0 0% 0% / 0.24);
-  --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.32), 0 2px 6px rgb(0 0 0 / 0.2);
-  --ring-outer: 0px;
-  --ring-inner: 1px;
-  --ring-color: var(--alpha-2);
-  --focus-shadow: inset 0 0 0 1px var(--page-bg), 0 0 0 1px var(--fill-accent), 0 0 6px 1px hsl(from var(--blue-600) h s l / 60%);
-  --pictogram-highlight-default: var(--gray-650);
-  --pictogram-highlight-heather: var(--plum);
-  --pictogram-highlight-cactus: var(--mineral);
-  --pictogram-highlight-peach: var(--clay-emphasized);
-  --neutral-0: var(--gray-900);
-  --neutral-10: var(--gray-890);
-  --neutral-20: var(--gray-880);
-  --neutral-30: var(--gray-870);
-  --neutral-40: var(--gray-860);
-  --neutral-50: var(--gray-850);
-  --neutral-60: var(--gray-840);
-  --neutral-70: var(--gray-830);
-  --neutral-80: var(--gray-820);
-  --neutral-90: var(--gray-810);
-  --neutral-100: var(--gray-800);
-  --neutral-150: var(--gray-750);
-  --neutral-200: var(--gray-700);
-  --neutral-250: var(--gray-650);
-  --neutral-300: var(--gray-600);
-  --neutral-350: var(--gray-550);
-  --neutral-400: var(--gray-500);
-  --neutral-450: var(--gray-450);
-  --neutral-500: var(--gray-400);
-  --neutral-550: var(--gray-350);
-  --neutral-600: var(--gray-300);
-  --neutral-650: var(--gray-250);
-  --neutral-700: var(--gray-200);
-  --neutral-750: var(--gray-150);
-  --neutral-800: var(--gray-100);
-  --neutral-810: var(--gray-90);
-  --neutral-820: var(--gray-80);
-  --neutral-830: var(--gray-70);
-  --neutral-840: var(--gray-60);
-  --neutral-850: var(--gray-50);
-  --neutral-860: var(--gray-40);
-  --neutral-870: var(--gray-30);
-  --neutral-880: var(--gray-20);
-  --neutral-890: var(--gray-10);
-  --neutral-900: var(--gray-0);
-  --surface-0: var(--gray-890);
-  --surface-1: var(--gray-830);
-  --surface-2: var(--gray-750);
-  --surface-3: var(--gray-700);
-  --fill-git-added: var(--text-git-added);
-  --fill-git-added-hover: #27c840;
-  --fill-git-removed-hover: #ff1342;
-  --fill-git-modified: var(--text-git-modified);
-  --fill-git-modified-hover: #fac800;
-  --fill-git-merged: var(--text-git-merged);
-  --fill-git-merged-hover: #a67dff;
-  --fill-git-closed: var(--text-git-closed);
-  --fill-git-closed-hover: #ff4940;
-  --fill-git-conflicting: var(--text-git-conflicting);
-  --fill-git-conflicting-hover: #f97a1f;
-  --fill-git-draft-hover: #999999;
-  --fill-primary-hover: var(--gray-100);
-  --fill-secondary: var(--alpha-2);
-  --fill-secondary-hover: hsl(0 0% 100% / 0.14);
-  --fill-secondary-ring: transparent;
-  --fill-field: var(--fill-secondary);
-  --bg-accent: var(--blue-800);
-  --bg-danger: var(--red-800);
-  --bg-success: var(--green-800);
-  --bg-warning: var(--yellow-800);
-  --bg-pro: var(--violet-800);
-  --backdrop: rgb(0 0 0 / 0.5);
-  --text-accent: var(--blue-300);
-  --text-danger: var(--red-300);
-  --text-success: var(--green-400);
-  --text-warning: var(--yellow-300);
-  --text-pro: var(--violet-300);
-  --text-git-added: #32d74b;
-  --text-git-removed: #ff2c56;
-  --text-git-modified: #ffd014;
-  --text-git-merged: #b796ff;
-  --text-git-closed: #ff6159;
-  --text-git-conflicting: #fa832e;
-  --text-git-draft: #a6a6a6;
-  --text-secondary: var(--gray-200);
-  --text-muted: var(--gray-400);
-  --on-git-added: var(--gray-900);
-  --on-git-removed: var(--gray-900);
-  --on-git-modified: var(--gray-900);
-  --on-git-merged: var(--gray-900);
-  --on-git-closed: var(--gray-900);
-  --on-git-conflicting: var(--gray-900);
-  --on-git-draft: var(--gray-900);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-mode="light"])) {
-    --border-accent: var(--blue-700);
-    --border-danger: var(--red-700);
-    --border-success: var(--green-700);
-    --border-warning: var(--yellow-700);
-    --border-pro: var(--violet-700);
-    --shadow-color: hsl(0 0% 0% / 0.24);
-    --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.32), 0 2px 6px rgb(0 0 0 / 0.2);
-    --ring-outer: 0px;
-    --ring-inner: 1px;
-    --ring-color: var(--alpha-2);
-    --focus-shadow: inset 0 0 0 1px var(--page-bg), 0 0 0 1px var(--fill-accent), 0 0 6px 1px hsl(from var(--blue-600) h s l / 60%);
-    --pictogram-highlight-default: var(--gray-650);
-    --pictogram-highlight-heather: var(--plum);
-    --pictogram-highlight-cactus: var(--mineral);
-    --pictogram-highlight-peach: var(--clay-emphasized);
-    --neutral-0: var(--gray-900);
-    --neutral-10: var(--gray-890);
-    --neutral-20: var(--gray-880);
-    --neutral-30: var(--gray-870);
-    --neutral-40: var(--gray-860);
-    --neutral-50: var(--gray-850);
-    --neutral-60: var(--gray-840);
-    --neutral-70: var(--gray-830);
-    --neutral-80: var(--gray-820);
-    --neutral-90: var(--gray-810);
-    --neutral-100: var(--gray-800);
-    --neutral-150: var(--gray-750);
-    --neutral-200: var(--gray-700);
-    --neutral-250: var(--gray-650);
-    --neutral-300: var(--gray-600);
-    --neutral-350: var(--gray-550);
-    --neutral-400: var(--gray-500);
-    --neutral-450: var(--gray-450);
-    --neutral-500: var(--gray-400);
-    --neutral-550: var(--gray-350);
-    --neutral-600: var(--gray-300);
-    --neutral-650: var(--gray-250);
-    --neutral-700: var(--gray-200);
-    --neutral-750: var(--gray-150);
-    --neutral-800: var(--gray-100);
-    --neutral-810: var(--gray-90);
-    --neutral-820: var(--gray-80);
-    --neutral-830: var(--gray-70);
-    --neutral-840: var(--gray-60);
-    --neutral-850: var(--gray-50);
-    --neutral-860: var(--gray-40);
-    --neutral-870: var(--gray-30);
-    --neutral-880: var(--gray-20);
-    --neutral-890: var(--gray-10);
-    --neutral-900: var(--gray-0);
-    --surface-0: var(--gray-890);
-    --surface-1: var(--gray-830);
-    --surface-2: var(--gray-750);
-    --surface-3: var(--gray-700);
-    --fill-git-added: var(--text-git-added);
-    --fill-git-added-hover: #27c840;
-    --fill-git-removed-hover: #ff1342;
-    --fill-git-modified: var(--text-git-modified);
-    --fill-git-modified-hover: #fac800;
-    --fill-git-merged: var(--text-git-merged);
-    --fill-git-merged-hover: #a67dff;
-    --fill-git-closed: var(--text-git-closed);
-    --fill-git-closed-hover: #ff4940;
-    --fill-git-conflicting: var(--text-git-conflicting);
-    --fill-git-conflicting-hover: #f97a1f;
-    --fill-git-draft-hover: #999999;
-    --fill-primary-hover: var(--gray-100);
-    --fill-secondary: var(--alpha-2);
-    --fill-secondary-hover: hsl(0 0% 100% / 0.14);
-    --fill-secondary-ring: transparent;
-    --fill-field: var(--fill-secondary);
-    --bg-accent: var(--blue-800);
-    --bg-danger: var(--red-800);
-    --bg-success: var(--green-800);
-    --bg-warning: var(--yellow-800);
-    --bg-pro: var(--violet-800);
-    --backdrop: rgb(0 0 0 / 0.5);
-    --text-accent: var(--blue-300);
-    --text-danger: var(--red-300);
-    --text-success: var(--green-400);
-    --text-warning: var(--yellow-300);
-    --text-pro: var(--violet-300);
-    --text-git-added: #32d74b;
-    --text-git-removed: #ff2c56;
-    --text-git-modified: #ffd014;
-    --text-git-merged: #b796ff;
-    --text-git-closed: #ff6159;
-    --text-git-conflicting: #fa832e;
-    --text-git-draft: #a6a6a6;
-    --text-secondary: var(--gray-200);
-    --text-muted: var(--gray-400);
-    --on-git-added: var(--gray-900);
-    --on-git-removed: var(--gray-900);
-    --on-git-modified: var(--gray-900);
-    --on-git-merged: var(--gray-900);
-    --on-git-closed: var(--gray-900);
-    --on-git-conflicting: var(--gray-900);
-    --on-git-draft: var(--gray-900);
-  }
-}
-
-  /* ===== END vendored @ant/cds tokens ===== */
-
-  /* Deviations from stock CDS — the only hand-maintained token values.
-     De-brand invariant: published artifacts use plain system font stacks
-     (no Anthropic fonts or serif voice) and a white light surface. Both
-     font overrides are load-bearing — the vendored stacks lead with
-     Anthropic Sans/Mono. The --hl-* highlight theme is this template's
-     own extension, mapped to canonical CDS palette stops above. */
-  :root {
-    color-scheme: light dark;
-    --font-sans: var(--font-system);
-    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    --surface-0: #ffffff;
-    --hl-comment: var(--gray-400);
-    --hl-keyword: var(--violet-600);
-    --hl-string: var(--green-600);
-    --hl-number: var(--magenta-600);
-    --hl-title: var(--blue-600);
-    --hl-attr: var(--aqua-600);
-    --hl-deletion: var(--red-600);
-  }
-  /* Dark re-overrides: the white-surface deviation above is light-only,
-     and source order would otherwise beat the vendored dark block (equal
-     :root specificity), so dark restores the canonical surface here —
-     under both axes, mirroring the vendored block's own structure: the
-     media block carries the same :where() zero-specificity guard so an
-     explicit light stamp beats OS-dark, and the attribute block forces
-     dark on an OS-light machine. */
-  @media (prefers-color-scheme: dark) {
-    :root:where(:not([data-mode="light"])) {
-      --surface-0: var(--gray-890);
-      --hl-keyword: var(--violet-300);
-      --hl-string: var(--green-300);
-      --hl-number: var(--magenta-300);
-      --hl-title: var(--blue-300);
-      --hl-attr: var(--aqua-300);
-      --hl-deletion: var(--red-300);
-    }
-  }
-  :root[data-mode="dark"] {
-    color-scheme: dark;
-    --surface-0: var(--gray-890);
-    --hl-keyword: var(--violet-300);
-    --hl-string: var(--green-300);
-    --hl-number: var(--magenta-300);
-    --hl-title: var(--blue-300);
-    --hl-attr: var(--aqua-300);
-    --hl-deletion: var(--red-300);
-  }
-  :root[data-mode="light"] { color-scheme: light; }
-  /* Print is always light, regardless of the OS scheme or the toggle stamp
-     (browsers don't print backgrounds by default). The vendored dark block
-     cannot be switched off in print, so this re-pins — as literals — every
-     token this template's element rules actually paint with; the selector
-     list ties the attribute-dark scope and wins by source order. */
-  @media print {
-    :root, :root[data-mode="dark"] {
-      color-scheme: light;
-      --surface-0: #ffffff;
-      --text-primary: #0b0b0b;
-      --text-secondary: #52514e;
-      --text-accent: #184f95;
-      --border: rgba(11, 11, 11, 0.1);
-      --border-strong: rgba(11, 11, 11, 0.2);
-      --border-stronger: rgba(11, 11, 11, 0.4);
-      --fill-control: rgba(11, 11, 11, 0.1);
-      --hl-keyword: #4a3aa7;
-      --hl-string: #006300;
-      --hl-number: #862a4c;
-      --hl-title: #184f95;
-      --hl-attr: #065f49;
-      --hl-deletion: #8e2626;
-    }
-  }
-
-  body {
-    background: var(--surface-0);
-    color: var(--text-primary);
-    font: 14px/1.5 var(--font-sans);
-    overflow-wrap: break-word;
-  }
-  article {
-    max-width: 76ch;
-    margin: 0 auto;
-    padding: var(--gap-xl) 24px 72px;
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-xl);
-  }
-  header { display: flex; flex-direction: column; gap: var(--gap-sm); }
-  .eyebrow {
-    font: 600 12px/14px var(--font-sans);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-accent);
-  }
-  /* Document heading scale: 24/19/16/14 over the 14px body (~1.19 steps).
-     Deliberately looser than the closed CDS UI scale — a long document
-     needs more size differentiation between levels than app chrome does. */
-  h1 {
-    font: 600 24px/30px var(--font-sans);
-    letter-spacing: -0.01em;
-    text-wrap: balance;
-    margin: 0;
-  }
-  h2 {
-    font: 600 19px/25px var(--font-sans);
-    text-wrap: balance;
-    margin: 0;
-  }
-  h3 {
-    font: 600 16px/22px var(--font-sans);
-    text-wrap: balance;
-    margin: 0;
-  }
-  h4, h5, h6 {
-    font: 600 14px/20px var(--font-sans);
-    text-wrap: balance;
-    margin: 0;
-  }
-  section { display: flex; flex-direction: column; gap: var(--gap-md); }
-  /* Heading rhythm inside the single mechanical-fill section: headings group
-     with the content below them, not the paragraph above. Inert in the
-     skill's multi-section flow, where each h2 is its section's first child. */
-  section > :is(h2, h3, h4):not(:first-child) { margin-top: var(--gap-sm); }
-  section > h2:not(:first-child) { margin-top: var(--gap-md); }
-  p, li { margin: 0; max-width: 68ch; }
-  .lede { font-size: 15px; line-height: 1.5; color: var(--text-secondary); }
-  .lede:empty { display: none; }
-  header h1:empty { display: none; }
-  a { color: var(--text-accent); }
-  code {
-    font: 0.92em/1.5 var(--font-mono);
-    background: var(--fill-control);
-    padding: 1px 3px;
-    border-radius: 4px;
-  }
-  a > code { background: none; color: inherit; }
-  pre {
-    font: 13px/19px var(--font-mono);
-    background: var(--fill-control);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: var(--gap-sm) var(--gap-md);
-    overflow-x: auto;
-    margin: 0;
-  }
-  pre code { background: none; padding: 0; font: inherit; }
-  /* Syntax-highlight theme for the hljs-* spans the injected client-side
-     runtime (hljsHighlight.ts) emits. Colors are @ant/cds base-palette
-     stops (600s light / 300s dark) — the hue families CDS derives its role
-     colors from. */
-  .hljs-comment, .hljs-quote, .hljs-meta { color: var(--hl-comment); font-style: italic; }
-  .hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-type, .hljs-doctag { color: var(--hl-keyword); }
-  .hljs-string, .hljs-regexp, .hljs-addition { color: var(--hl-string); }
-  .hljs-number, .hljs-symbol { color: var(--hl-number); }
-  .hljs-title, .hljs-name, .hljs-section, .hljs-built_in { color: var(--hl-title); }
-  .hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-params, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id { color: var(--hl-attr); }
-  .hljs-deletion { color: var(--hl-deletion); }
-  .hljs-emphasis { font-style: italic; }
-  .hljs-strong { font-weight: 600; }
-  blockquote {
-    border-left: 2px solid var(--border-strong);
-    padding-left: var(--gap-sm);
-    color: var(--text-secondary);
-    margin: 0;
-  }
-  table {
-    display: block;
-    width: max-content;
-    max-width: 100%;
-    overflow-x: auto;
-    border-collapse: collapse;
-    font-variant-numeric: tabular-nums;
-  }
-  th, td {
-    text-align: left;
-    vertical-align: top;
-    padding: var(--gap-xs) var(--gap-sm);
-    border-bottom: 1px solid var(--border);
-  }
-  th {
-    font: 600 12px/14px var(--font-sans);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-    border-bottom-color: var(--border-strong);
-  }
-  ul, ol { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: var(--gap-xs); }
-  /* Task-list items: the box replaces the bullet in the same gutter, and the
-     native disabled-checkbox rendering (dim, sub-pixel) is replaced with a
-     CDS-colored box so checks read at a glance in both modes. fill-accent
-     has no dark override in CDS, so the white check passes contrast in both.
-     Both tight (\`li > input\`) and loose (\`li > p > input\` — marked wraps
-     multi-block items in <p>) task-list shapes are covered. */
-  li:has(> input[type="checkbox"]),
-  li:has(> p:first-child > input[type="checkbox"]:first-child) {
-    list-style: none;
-    margin-left: -1.25rem;
-  }
-  :is(li, li > p:first-child) > input[type="checkbox"] {
-    appearance: none;
-    width: 14px;
-    height: 14px;
-    border: 1.5px solid var(--border-stronger);
-    border-radius: 4px;
-    background: var(--surface-0);
-    margin: 0 6px 0 0;
-    vertical-align: -2px;
-  }
-  :is(li, li > p:first-child) > input[type="checkbox"]:checked {
-    background: var(--fill-accent) url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2012%2012%27%3E%3Cpath%20d=%27M2.5%206.5%205%209l4.5-5.5%27%20fill=%27none%27%20stroke=%27%23fff%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27/%3E%3C/svg%3E") center/10px 10px no-repeat;
-    border-color: var(--fill-accent);
-  }
-  /* Loose / multi-block list items: space the blocks inside an item. */
-  :is(li, td, th) > * + :is(p, ul, ol, blockquote, pre) { margin-top: var(--gap-xs); }
-  img { max-width: 100%; height: auto; border-radius: var(--radius); }
-  hr { border: none; border-top: 1px solid var(--border); margin: 0; }
-</style>
-
-<article>
-  <header>
-    <span class="eyebrow">{{EYEBROW}}</span>
-    <h1>{{TITLE}}</h1>
-    <p class="lede">{{SUMMARY}}</p>
-  </header>
-
-  <section>
-    <h2>Context</h2>
-    <!-- SLOT: context -->
-  </section>
-
-  <section>
-    <h2>Approach</h2>
-    <!-- SLOT: approach -->
-  </section>
-
-  <section>
-    <h2>Phases</h2>
-    <!-- SLOT: phases -->
-  </section>
-
-  <section>
-    <h2>Verification</h2>
-    <!-- SLOT: verification -->
-  </section>
-</article>
-`;
-
-// plugins/artifact-design/src/render-markdown.ts
-function mermaidBlock(text, lang) {
-  if (((lang ?? "").trim().split(/\s+/)[0]?.toLowerCase() ?? "") !== "mermaid")
-    return false;
-  return `<pre class="mermaid">${escape(text)}</pre>
-`;
-}
-var marked = new B({ gfm: true });
-marked.use({ renderer: { code: ({ text, lang }) => mermaidBlock(text, lang) } });
-function render(text) {
-  return marked.parse(text, { async: false });
-}
-var lex = (text) => marked.lexer(text);
-var SCAN_LIMIT = 65536;
-var ATX_LINE = /^ {0,3}#{1,6}(?:[ \t]+(.*))?$/m;
-function stripClosingHashes(text) {
-  const isSpace = (ch) => /\s/.test(ch);
-  let n = text.length;
-  while (n > 0 && isSpace(text[n - 1]))
-    n--;
-  const end = n;
-  while (n > 0 && text[n - 1] === "#")
-    n--;
-  if (n === end || n > 0 && text[n - 1] !== " ")
-    return text.slice(0, end);
-  while (n > 0 && isSpace(text[n - 1]))
-    n--;
-  return text.slice(0, n);
-}
-function stripFrontMatter(text) {
-  const open = text.match(/^---[ \t]*\n/);
-  if (!open)
-    return text;
-  const rest = text.slice(open[0].length);
-  const close = rest.match(/^---[ \t]*$/m);
-  if (!close)
-    return text;
-  const blank = rest.match(/^[ \t]*$/m);
-  if (blank && blank.index < close.index)
-    return text;
-  return rest.slice(close.index + close[0].length + 1);
-}
-function firstHeadingText(text) {
-  const body = stripFrontMatter(text);
-  if (body.length <= SCAN_LIMIT) {
-    let tokens;
-    try {
-      tokens = lex(body);
-    } catch {
-      return;
-    }
-    return tokens.find((token) => token.type === "heading")?.text;
-  }
-  const line = body.match(ATX_LINE)?.[1];
-  return line === undefined ? undefined : stripClosingHashes(line).slice(0, SCAN_LIMIT);
-}
-function onlyComments(html) {
-  let rest = html.trim();
-  while (rest.startsWith("<!--")) {
-    const end = rest.indexOf("-->", 4);
-    if (end === -1)
-      return false;
-    rest = rest.slice(end + 3).trimStart();
-  }
-  return rest === "";
-}
-function firstBlock(text, from) {
-  let tokens;
-  try {
-    tokens = lex(text);
-  } catch {
-    return null;
-  }
-  let pos = 0;
-  for (const token of tokens) {
-    if (!text.startsWith(token.raw, pos))
-      return null;
-    const end = pos + token.raw.length;
-    if (end <= from || pos < from && text.slice(from, end).trim() === "") {
-      pos = end;
-      continue;
-    }
-    if (pos < from)
-      return null;
-    if (token.type === "space" || token.type === "html" && onlyComments(token.raw)) {
-      pos = end;
-      continue;
-    }
-    return { token, offset: pos, links: tokens.links ?? {} };
-  }
-  return null;
-}
-var YAML_LINE = /^(?:[ \t]*$|[ \t]+\S|- |[\w"'.-][^:#]*:(?:[ \t]|$))/;
-function openingHeading(text) {
-  const frontLength = text.length - stripFrontMatter(text).length;
-  const front = text.slice(0, frontLength);
-  const lines = front.replace(/\n$/, "").split(`
-`).slice(1, -1);
-  const yaml = lines.every((line) => YAML_LINE.test(line) && !ATX_LINE.test(line));
-  const first = firstBlock(text, yaml ? frontLength : 0);
-  const heading = first && first.token.type === "heading" ? first : null;
-  let packedHeading;
-  if (!yaml) {
-    const atx = ATX_LINE.exec(front);
-    packedHeading = atx ? stripClosingHashes(atx[1] ?? "") : lines.find((line) => !YAML_LINE.test(line) || ATX_LINE.test(line))?.trim();
-  }
-  return { heading, packedHeading };
-}
-function linkDefinitions(links) {
-  return Object.entries(links).map(([label, link]) => {
-    if (!link?.href || /[<>\n]/.test(link.href) || /[\]\n]/.test(label))
-      return "";
-    const href = /[\s()]/.test(link.href) ? `<${link.href}>` : link.href;
-    const title = link.title ?? "";
-    const quoted = !title || /\n/.test(title) ? "" : !title.includes('"') ? ` "${title}"` : !title.includes("'") ? ` '${title}'` : !/[()]/.test(title) ? ` (${title})` : "";
-    return `[${label}]: ${href}${quoted}
-`;
-  }).join("");
-}
-function headingHtml(token, links) {
-  const source = token.raw.replace(/\n*$/, `
-
-`) + linkDefinitions(links);
-  const inner = /^\s*<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>\s*$/.exec(render(source))?.[1]?.trim();
-  if (inner === undefined || /<\/?section\b/i.test(inner))
-    return escape(token.text.replace(/\s+/g, " ").trim());
-  return inner.replace(/\s+/g, " ");
-}
-function plainText(html) {
-  return html.replace(/<img\b[^>]*\balt="([^"]*)"[^>]*>/gi, " $1 ").replace(/<[^>]*>/g, "").replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (whole, ref) => {
-    const name = ref.toLowerCase();
-    if (name === "amp")
-      return "&";
-    if (name === "lt")
-      return "<";
-    if (name === "gt")
-      return ">";
-    if (name === "quot")
-      return '"';
-    if (name === "apos")
-      return "'";
-    const code = name.startsWith("#x") ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
-    return Number.isFinite(code) && code > 0 && code <= 1114111 && (code < 55296 || code > 57343) ? String.fromCodePoint(code) : whole;
-  }).replace(/\s+/g, " ").trim();
-}
-var LINK = /!?\[([^\]]{0,400})\]\([^\s)]{0,1500}\)/g;
-function unmark(text) {
-  for (let pass = 0;pass < 3; pass++) {
-    const next = text.replace(LINK, (whole, label, offset, all) => offset > 0 && all[offset - 1] === "\\" || label.endsWith("\\") ? whole : label);
-    if (next === text)
-      break;
-    text = next;
-  }
-  return text.replace(/[*`]|~~/g, "").replace(/(?<![\p{L}\p{N}])(?<!_)_+(?!_)|(?<!_)_+(?!_)(?![\p{L}\p{N}])/gu, "");
-}
-function markdownText(text) {
-  const ticks = [...text.matchAll(/`+/g)].map((match) => ({ start: match.index, len: match[0].length }));
-  let out = "";
-  let pos = 0;
-  let i = 0;
-  while (i < ticks.length) {
-    const open = ticks[i];
-    let j = i + 1;
-    while (j < ticks.length && ticks[j].len !== open.len)
-      j++;
-    if (j < ticks.length) {
-      const close = ticks[j];
-      out += unmark(text.slice(pos, open.start)) + text.slice(open.start + open.len, close.start);
-      pos = close.start + close.len;
-      i = j + 1;
-    } else
-      i++;
-  }
-  return out + unmark(text.slice(pos));
-}
-function title(text, heading, packedHeading, fallback) {
-  if (heading) {
-    const html = headingHtml(heading.token, heading.links);
-    const plain = plainText(html);
-    return plain === "" && !/<\w/.test(html.replace(/<!--[\s\S]*?-->/g, "")) ? { titleHtml: escape(fallback), title: fallback } : { titleHtml: html, title: plain || fallback };
-  }
-  const found = [firstHeadingText(text), packedHeading].find((line) => line !== undefined && line.trim() !== "");
-  return found === undefined ? { titleHtml: escape(fallback), title: fallback } : { titleHtml: "", title: markdownText(found).replace(/\s+/g, " ").trim() || fallback };
-}
-function fillTemplate(template, slots) {
-  const page = template.replace(/^﻿?<!--[\s\S]*?-->\s*/, "");
-  const sections = /<section\b[\s\S]*<\/section>/;
-  if (!sections.test(page))
-    return null;
-  const values = {
-    TITLE: slots.titleHtml,
-    TAB_TITLE: escape(slots.tabTitle),
-    EYEBROW: escape(slots.eyebrow),
-    SUMMARY: escape(slots.summary)
-  };
-  return page.replace(/\{\{(TITLE|TAB_TITLE|EYEBROW|SUMMARY)\}\}/g, (_whole, slot) => values[slot] ?? "").replace(sections, () => `<section>${slots.body}</section>`);
-}
-function page(source, filename) {
-  const text = source.replace(/^﻿/, "").replace(/\r\n|\r/g, `
-`);
-  const { heading, packedHeading } = text.length > SCAN_LIMIT ? { heading: null, packedHeading: undefined } : openingHeading(text);
-  const named = title(text, heading, packedHeading, filename);
-  const rest = heading ? text.slice(0, heading.offset) + text.slice(heading.offset + heading.token.raw.length) : text;
-  const html = fillTemplate(markdown_template_default, {
-    titleHtml: named.titleHtml,
-    tabTitle: filename,
-    eyebrow: `Markdown · ${filename}`,
-    summary: "",
-    body: render(rest)
-  });
-  if (html === null)
-    throw new Error("markdown-template.html has no <section> to fill");
-  return [html, Array.from(named.title).slice(0, 120).join("").trim() || filename];
-}
-
-// plugins/artifact-design/skills/artifact-design/scripts/hljs-languages.json
-var hljs_languages_default = [
-  "abnf",
-  "accesslog",
-  "actionscript",
-  "ada",
-  "ado",
-  "adoc",
-  "ahk",
-  "angelscript",
-  "apache",
-  "apacheconf",
-  "applescript",
-  "arcade",
-  "arduino",
-  "arm",
-  "armasm",
-  "as",
-  "asc",
-  "asciidoc",
-  "aspectj",
-  "atom",
-  "autohotkey",
-  "autoit",
-  "avrasm",
-  "awk",
-  "axapta",
-  "bash",
-  "basic",
-  "bat",
-  "bf",
-  "bind",
-  "bnf",
-  "brainfuck",
-  "c",
-  "c#",
-  "c++",
-  "cal",
-  "capnp",
-  "capnproto",
-  "cc",
-  "ceylon",
-  "cjs",
-  "clean",
-  "clj",
-  "clojure",
-  "clojure-repl",
-  "cls",
-  "cmake",
-  "cmake.in",
-  "cmd",
-  "coffee",
-  "coffeescript",
-  "console",
-  "coq",
-  "cos",
-  "cpp",
-  "cr",
-  "craftcms",
-  "crm",
-  "crmsh",
-  "crystal",
-  "cs",
-  "csharp",
-  "cson",
-  "csp",
-  "css",
-  "cts",
-  "cxx",
-  "d",
-  "dart",
-  "dcl",
-  "delphi",
-  "dfm",
-  "diff",
-  "django",
-  "dns",
-  "do",
-  "docker",
-  "dockerfile",
-  "dos",
-  "dpr",
-  "dsconfig",
-  "dst",
-  "dts",
-  "dust",
-  "ebnf",
-  "edn",
-  "elixir",
-  "elm",
-  "erb",
-  "erl",
-  "erlang",
-  "erlang-repl",
-  "ex",
-  "excel",
-  "exs",
-  "f#",
-  "f90",
-  "f95",
-  "feature",
-  "fix",
-  "flix",
-  "fortran",
-  "freepascal",
-  "fs",
-  "fsharp",
-  "gams",
-  "gauss",
-  "gcode",
-  "gemspec",
-  "gherkin",
-  "glsl",
-  "gms",
-  "go",
-  "golang",
-  "golo",
-  "gql",
-  "gradle",
-  "graph",
-  "graphql",
-  "groovy",
-  "gss",
-  "gyp",
-  "h",
-  "h++",
-  "haml",
-  "handlebars",
-  "haskell",
-  "haxe",
-  "hbs",
-  "hh",
-  "hpp",
-  "hs",
-  "hsp",
-  "html",
-  "html.handlebars",
-  "html.hbs",
-  "htmlbars",
-  "http",
-  "https",
-  "hx",
-  "hxx",
-  "hy",
-  "hylang",
-  "i7",
-  "iced",
-  "icl",
-  "inform7",
-  "ini",
-  "ino",
-  "instances",
-  "ipython",
-  "irb",
-  "irpf90",
-  "java",
-  "javascript",
-  "jboss-cli",
-  "jinja",
-  "jldoctest",
-  "js",
-  "json",
-  "jsonc",
-  "jsp",
-  "jsx",
-  "julia",
-  "julia-repl",
-  "k",
-  "kdb",
-  "kotlin",
-  "kt",
-  "kts",
-  "lasso",
-  "lassoscript",
-  "latex",
-  "lazarus",
-  "ldif",
-  "leaf",
-  "less",
-  "lfm",
-  "lisp",
-  "livecodeserver",
-  "livescript",
-  "llvm",
-  "lpr",
-  "ls",
-  "lsl",
-  "lua",
-  "m",
-  "mak",
-  "make",
-  "makefile",
-  "markdown",
-  "matlab",
-  "md",
-  "mel",
-  "mercury",
-  "mikrotik",
-  "mips",
-  "mipsasm",
-  "mizar",
-  "mjs",
-  "mk",
-  "mkd",
-  "mkdown",
-  "ml",
-  "mm",
-  "mojolicious",
-  "monkey",
-  "moo",
-  "moon",
-  "moonscript",
-  "mts",
-  "mysql",
-  "n1ql",
-  "nc",
-  "nestedtext",
-  "nginx",
-  "nginxconf",
-  "nim",
-  "nix",
-  "nixos",
-  "node-repl",
-  "nsis",
-  "nt",
-  "obj-c",
-  "obj-c++",
-  "objc",
-  "objective-c++",
-  "objectivec",
-  "ocaml",
-  "openscad",
-  "oracle",
-  "osascript",
-  "oxygene",
-  "p21",
-  "parser3",
-  "pas",
-  "pascal",
-  "patch",
-  "pb",
-  "pbi",
-  "pcmk",
-  "pde",
-  "perl",
-  "pf",
-  "pf.conf",
-  "pgsql",
-  "php",
-  "php-template",
-  "php3",
-  "php4",
-  "php5",
-  "php6",
-  "php7",
-  "php8",
-  "pl",
-  "plaintext",
-  "plist",
-  "pluto",
-  "pm",
-  "podspec",
-  "pony",
-  "postgres",
-  "postgresql",
-  "powershell",
-  "pp",
-  "processing",
-  "profile",
-  "prolog",
-  "properties",
-  "proto",
-  "protobuf",
-  "ps",
-  "ps1",
-  "puppet",
-  "purebasic",
-  "pwsh",
-  "py",
-  "pycon",
-  "python",
-  "python-repl",
-  "q",
-  "qml",
-  "qt",
-  "r",
-  "rb",
-  "re",
-  "reasonml",
-  "rib",
-  "roboconf",
-  "routeros",
-  "rs",
-  "rsl",
-  "rss",
-  "ruby",
-  "ruleslanguage",
-  "rust",
-  "sas",
-  "scad",
-  "scala",
-  "scheme",
-  "sci",
-  "scilab",
-  "scm",
-  "scss",
-  "sh",
-  "shell",
-  "shellsession",
-  "smali",
-  "smalltalk",
-  "sml",
-  "sql",
-  "st",
-  "stan",
-  "stanfuncs",
-  "stata",
-  "step",
-  "step21",
-  "stp",
-  "styl",
-  "stylus",
-  "subunit",
-  "sv",
-  "svg",
-  "svh",
-  "swift",
-  "taggerscript",
-  "tao",
-  "tap",
-  "tcl",
-  "tex",
-  "text",
-  "thor",
-  "thrift",
-  "tk",
-  "toml",
-  "tp",
-  "ts",
-  "tsx",
-  "twig",
-  "txt",
-  "typescript",
-  "v",
-  "vala",
-  "vb",
-  "vbnet",
-  "vbs",
-  "vbscript",
-  "vbscript-html",
-  "verilog",
-  "vhdl",
-  "vim",
-  "wasm",
-  "wildfly-cli",
-  "wren",
-  "wsf",
-  "x++",
-  "x86asm",
-  "xhtml",
-  "xjb",
-  "xl",
-  "xls",
-  "xlsx",
-  "xml",
-  "xpath",
-  "xq",
-  "xqm",
-  "xquery",
-  "xsd",
-  "xsl",
-  "yaml",
-  "yml",
-  "zep",
-  "zephir",
-  "zone",
-  "zsh"
-];
 
 // plugins/artifact-design/skills/artifact-design/scripts/mermaid-runtime.html
 var mermaid_runtime_default = `<style>.mermaid-diagram{margin-block:4px}.mermaid-diagram svg{display:block;margin:0 auto;max-width:100%;height:auto}</style>
@@ -28232,11 +25628,12 @@ var CSP = [
   "object-src 'none'",
   "base-uri 'self'"
 ].join("; ");
+var SYSTEM_START = (name) => `<!--design-system:${name}-->`;
+var SYSTEM_END = "<!--/design-system-->";
 var GENERATOR = '<meta name="generator" content="artifact-design">';
 var TAIL_MARK = "<!-- artifact-design -->";
 var GENERATOR_MARKS = /<meta name="generator" content="artifact-design(?: publish\.py)?">/;
 var MERMAID = mermaid_runtime_default.replace(/\n+$/, "");
-var HLJS_RUNTIME_FILE = "hljs-runtime.html";
 var SIZE_LIMIT = 16 * 1024 * 1024;
 var TITLE_SCAN = 8192;
 var TITLE_MAX = 280;
@@ -28307,7 +25704,7 @@ function pageDescription(content, fileStem) {
   return heading;
 }
 var escapeRegExp2 = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-var SKELETON_RE = new RegExp('^<![dD][oO][cC][tT][yY][pP][eE] [hH][tT][mM][lL]><html(?: lang="([^"]{1,35})")?><head><meta charset=utf8>' + '<meta name=viewport content="width=device-width,initial-scale=1(,viewport-fit=cover)?">' + '((?:<meta http-equiv="Content-Security-Policy" content="[^"]*">)?(?:' + GENERATOR_MARKS.source + ')?(?:<link rel="icon" href="[^"]*">)?(?:<meta name="description" content="([^"]*)">)?)' + "<style>[^<]*</style></head><body>\\r?\\n");
+var SKELETON_RE = new RegExp('^<![dD][oO][cC][tT][yY][pP][eE] [hH][tT][mM][lL]><html(?: lang="([^"]{1,35})")?><head><meta charset=utf8>' + '<meta name=viewport content="width=device-width,initial-scale=1(,viewport-fit=cover)?">' + '((?:<meta http-equiv="Content-Security-Policy" content="[^"]*">)?(?:' + GENERATOR_MARKS.source + ')?(?:<link rel="icon" href="[^"]*">)?(?:<meta name="description" content="([^"]*)">)?)' + "<style>[^<]*</style>(?:<!--design-system:[^>]*-->[\\s\\S]*?" + escapeRegExp2(SYSTEM_END) + ")?</head><body>\\r?\\n");
 var TAIL_RE = new RegExp(`\\r?\\n(?:${escapeRegExp2(TAIL_MARK)}|<!-- artifact-design publish\\.py -->)\\r?\\n`);
 var RUNTIME_BLOCKS = /(?:\r?\n)?<!--claude-(mermaid|hljs|chart)-runtime-begin:\d+-->[\s\S]*?<!--claude-\1-runtime-end-->(?:\r?\n)?/g;
 var stripChars = (text, chars) => {
@@ -28350,6 +25747,8 @@ function coversSafeArea(content, fallback) {
     return fallback;
   return viewports.some((tag) => /viewport-fit\s*=\s*cover/i.test(tag));
 }
+var TAG_END = new Set([" ", "\t", `
+`, "\f", "\r", "/", ">"]);
 function usesMermaid(content) {
   if (/<script\b[^>]*?\ssrc\s*=\s*["']?[^"'\s>]*mermaid/i.test(content.replace(/<!--[\s\S]*?-->/g, "")))
     return false;
@@ -28413,44 +25812,23 @@ function classListsMermaid(attributes) {
   }
   return false;
 }
-var HIGHLIGHTED = new Set(hljs_languages_default);
-var TAG_END = new Set([" ", "\t", `
-`, "\f", "\r", "/", ">"]);
-function usesHighlight(content) {
-  const lower = content.toLowerCase();
-  for (let at = lower.indexOf("<code");at !== -1; at = lower.indexOf("<code", at)) {
-    if (!TAG_END.has(lower[at + 5] ?? "")) {
-      at += 5;
-      continue;
-    }
-    const limit = Math.min(at + 4096, lower.length);
-    const close = lower.indexOf(">", at + 5);
-    const end = close !== -1 && close < limit ? close : limit;
-    for (const match of lower.slice(at + 5, end).matchAll(/language-([\w.+#-]+)/g)) {
-      if (HIGHLIGHTED.has(match[1]))
-        return true;
-    }
-    at = end;
-  }
-  return false;
-}
-function wrap(content, description, highlight, lang = null, cover = null) {
+function wrap(content, description, lang = null, cover = null, kit = null) {
   const covers = coversSafeArea(content, cover ?? true);
   let head = SKELETON_START.replace("<html>", lang ? `<html lang="${lang}">` : "<html>");
   head += covers ? VIEWPORT_COVER : VIEWPORT_PLAIN;
   head += `<meta http-equiv="Content-Security-Policy" content="${CSP}">` + GENERATOR;
   if (description)
     head += `<meta name="description" content="${escape(description)}">`;
-  head += (covers ? SKELETON_RESET : PLAIN_RESET) + SKELETON_BODY;
-  const runtimes = [usesMermaid(content) && MERMAID, usesHighlight(content) && highlight.replace(/\n+$/, "")].filter(Boolean);
+  head += covers ? SKELETON_RESET : PLAIN_RESET;
+  if (kit?.head)
+    head += SYSTEM_START(kit.name) + kit.head + SYSTEM_END;
+  head += SKELETON_BODY;
+  const runtimes = [kit?.scripts, usesMermaid(content) && MERMAID].filter(Boolean);
   const tail = runtimes.length ? `
 ` + TAIL_MARK + `
 ` + runtimes.join(`
 `) : "";
   return head + content + tail + SKELETON_END;
-}
-function markdownPage(text, filename) {
-  return page(text, filename);
 }
 var FULL_DOCUMENT_NOTE = "The file was a full HTML document; it was published inside the skeleton as it is. " + "Publishing adds the skeleton, so write only the page content next time.";
 var OWN_FILES_FETCH_NOTE = "The page fetch()es its own files, but a browser refuses fetch() over file://, so the page " + "opened from this machine can't load them: put the data the script reads inline.";
@@ -28458,8 +25836,8 @@ function fetchesOwnFiles(content) {
   return /fetch\(\s*[`'"](?![a-z]+:)/.test(content);
 }
 var ICON_SVG = "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' " + "fill='%23141413'/%3E%3Ctext x='16' y='22' font-family='sans-serif' font-size='17' text-anchor='middle' " + "fill='%23faf9f5'%3E{letter}%3C/text%3E%3C/svg%3E";
-function wrapPage(content, description, icon, highlight, lang, cover) {
-  const published = wrap(content, description, highlight, lang, cover);
+function wrapPage(content, description, icon, lang, cover, kit = null) {
+  const published = wrap(content, description, lang, cover, kit);
   if (!icon)
     return published;
   const letter = icon.replace(/[^A-Za-z0-9]/g, "").slice(0, 1).toUpperCase() || "A";
@@ -28474,24 +25852,8 @@ class Skill2 extends Service()("artifact-design/Skill") {
     const paths = yield* Path;
     const { skillDir } = yield* ServerConfig;
     const scripts = paths.join(skillDir, "scripts");
-    const skillFile = paths.join(skillDir, "SKILL.md");
-    const guidance = gen2(function* () {
-      const text = yield* fs.readFileString(skillFile).pipe(mapError3((error) => new ActionError({ message: messageOf(error) })));
-      const start = text.indexOf("## Page contract");
-      if (start === -1)
-        return yield* new ActionError({ message: `${skillFile} has no "## Page contract" section` });
-      return text.slice(start).trim();
-    });
-    const runtime = yield* make32(null);
-    const highlightRuntime = gen2(function* () {
-      const known = yield* get7(runtime);
-      if (known !== null)
-        return known;
-      const text = yield* fs.readFileString(paths.join(scripts, HLJS_RUNTIME_FILE)).pipe(map6((text2) => text2.replace(/\n+$/, "")), mapError3(() => new ActionError({ message: `the plugin's ${HLJS_RUNTIME_FILE} is missing` })));
-      yield* set5(runtime, text);
-      return text;
-    });
-    return Skill2.of({ scripts, guidance, highlightRuntime });
+    const read = (name) => fs.readFileString(paths.join(skillDir, name)).pipe(map6((text) => text.trim()), mapError3((error) => new ActionError({ message: messageOf(error) })));
+    return Skill2.of({ scripts, contract: read("contract.md"), design: read("design.md") });
   }));
 }
 
@@ -28518,6 +25880,7 @@ class Preview extends Service()("artifact-design/Preview") {
     const config = yield* ServerConfig;
     const drafts = yield* Drafts;
     const skill = yield* Skill2;
+    const designSystem = yield* DesignSystem;
     const script = paths.join(skill.scripts, "preview.mjs");
     const started = yield* currentTimeMillis2;
     const uid = process.getuid?.();
@@ -28628,6 +25991,8 @@ class Preview extends Service()("artifact-design/Preview") {
       const stem = paths.basename(source, extension);
       const out = yield* fs.makeTempDirectory({ directory: previews, prefix: `${stem.slice(0, 40)}-` }).pipe(mapError3(failed));
       const wrapped = paths.join(out, "published.html");
+      let system = null;
+      let missing = null;
       if ([".html", ".htm"].includes(extension.toLowerCase())) {
         const bytes = yield* fs.readFile(source).pipe(mapError3(failed));
         const decoded = yield* result2(decodeSource(bytes));
@@ -28636,13 +26001,18 @@ class Preview extends Service()("artifact-design/Preview") {
           return textResult(`Could not preview ${paths.basename(source)}: ${why}`, true);
         }
         const { content, lang, cover } = unwrap7(decoded.success);
-        const highlight = usesHighlight(content) ? yield* skill.highlightRuntime : "";
-        yield* fs.writeFileString(wrapped, wrapPage(content, null, null, highlight, lang, cover)).pipe(mapError3(failed));
+        const asked = yield* designSystem.kitFor(content);
+        system = asked.folder;
+        if (asked.missing)
+          missing = missingSystemNote(asked.missing, asked.installed, "previewed");
+        yield* fs.writeFileString(wrapped, wrapPage(content, null, null, lang, cover, asked.kit)).pipe(mapError3(failed));
       }
-      return yield* report(source, wrapped, out, options);
+      return yield* report(source, wrapped, out, system, missing, options);
     });
-    const report = (source, wrapped, out, { widths, themes }) => gen2(function* () {
+    const report = (source, wrapped, out, system, missing, { widths, themes }) => gen2(function* () {
       const args = [script, source, "--wrapped", wrapped, "--json", "--out", out];
+      if (system !== null)
+        args.push("--system", system);
       if (Array.isArray(widths))
         args.push("--widths", widths.filter((w) => typeof w === "number").join(","));
       if (Array.isArray(themes))
@@ -28660,7 +26030,9 @@ class Preview extends Service()("artifact-design/Preview") {
         return textResult(`preview failed: ${output || "no output"}`, true);
       }
       const content = [
-        { type: "text", text: parsed.value.text }
+        { type: "text", text: missing === null ? parsed.value.text : `${missing}
+
+${parsed.value.text}` }
       ];
       for (const [n, shot] of (parsed.value.shots ?? []).entries()) {
         const bytes = yield* fs.readFile(shot.path).pipe(option2);
@@ -28953,25 +26325,23 @@ function decodeUtf8(bytes) {
 }
 
 // plugins/artifact-design/src/text/description.md
-var description_default = "The Artifact tool renders an HTML file as an Artifact: a web page published as a local file on this machine, in {store}{opened}. Its full name carries a server prefix (in Claude Code, `mcp__plugin_artifact-design_artifact__Artifact`), and \"Artifact\" in this text, in quickstart's result and in the skills means this tool, so a call to the bare name `Artifact` goes to this tool's full name instead. Claude uses it when a page would be clearer than terminal text, or when the person or their team would use the page rather than only read it. Claude may publish its own work without being asked, because a published page stays on this machine. The exception is content that could mislead or cause harm if shared further: anything that imitates a real organization, person or record, and anything the person presented as sensitive. Claude builds those as files and lets the person decide whether to publish them.\n\nWhen a finished piece of work is meant for other people or agents, such as a report for a team or the case for a decision the team has yet to make, Claude does not treat it as finished while it exists only in terminal scrollback or in a file it hasn't published. Claude publishes it as an Artifact and gives the person the link, so they have a page ready to share when they choose. Claude publishes it even when the request is phrased as a question, such as \"can you write up the plan?\". When the request says who else will read or use the work, such as a team, a manager or a reviewer, or where it will be posted or presented, such as a channel or a meeting, Claude publishes it. A write-up that will be posted in a channel or a thread is still published; when it is short, Claude also gives the text in its reply, ready to paste. When it might be passed along but nothing says so, Claude offers the page in one line instead of saying nothing. When the person asks only for Claude's own verdict, such as \"should we ship this?\", and names no one else who will read it, Claude gives the answer in the terminal and offers the page in one line instead of publishing it. A recommendation or analysis written up for someone else to act on is finished work for that reader, so Claude publishes it. Claude publishes an artifact for apps, sites, dashboards and games, and whenever the person asks for an artifact or for an HTML or Markdown page to view or share. When the person asks for the file itself, such as \"just give me the .html file\" or \"save these notes as a .md file\", Claude gives them that file and does not publish it. Advice that the person will act on by themselves, right away, in the code they are working on is not meant for other people, so Claude does not need to publish it.\n\n**Before writing the file, Claude must load the `artifact-design` skill** (`artifact-design:artifact-design` in the Skill tool), including for a `.md` file that a skill told Claude to write. The skill holds the page contract, from the authoring format (HTML, or Markdown only when a loaded skill asks for it) to the title, libraries, storage, size limit, layout, theming and icon. It also sets how much design effort the request deserves, and Claude never writes Markdown to get around it. Claude then writes the content to a file (via Write/Edit) and calls Artifact with its absolute path, putting the file in {drafts} when the person names no other location. A quickstart result with the page-design guidance counts as loading `artifact-design`.\n\n**If Claude writes a page before that skill has loaded**, the skill's contract still applies. Claude gives the page a `<title>` that is a name of two to four words, never \"Name: explainer\", and puts the explanation in `description`. Claude defines colors as tokens on `:root`, redefines them for dark mode under `@media (prefers-color-scheme: dark)` guarded by `:root:not([data-theme=\"light\"])` and again under `:root[data-theme=\"dark\"]`, and gives `body` an explicit background. Claude loads external scripts only from cdnjs.cloudflare.com (preferred), cdn.jsdelivr.net/npm/, unpkg.com, cdn.tailwindcss.com or code.jquery.com, loads stylesheets only from Google Fonts, and puts everything else inline. Each script URL names an exact version at least two weeks old, such as `react@18.3.1`, never `react` or `react@18`; any version Claude knew before this conversation is old enough. Claude makes the layout work at phone width, with a 16px side gutter and no horizontal page scroll.\n\n**Format**: Claude always authors the page as `.html`, and publishes a `.md` file only when a loaded skill explicitly asks for one. When the person shares a Markdown document or asks to turn one into an artifact, Claude builds an HTML page from its content, keeping its substance and designing the page as it would any other artifact rather than transcribing the Markdown one to one.\n\n**Browser storage**: `localStorage`, `sessionStorage` and IndexedDB work, but every artifact on this machine opens from `file://`, which the browser may treat as one origin shared by all of them, so Claude prefixes every key with the page's name; what a page stores lives only in that viewer's browser. It survives republishes to the same link and never reaches other viewers, other devices or Claude. It can come back empty, or the accessor can throw, in a private window, with cleared or blocked site data, or in previews, so Claude wraps every read and write in try/catch and makes the page render correctly without it. Claude uses it only for per-viewer conveniences, such as a remembered tab or filter, a collapsed section or an unsent draft, and never for state that must persist reliably, be shared between viewers or be read back by Claude.\n\n**Size**: Claude keeps the rendered page at 16MB or smaller, and embedded `data:` URIs count toward that limit.\n\n**Supporting files**: a multi-file artifact (separate stylesheets, scripts, data, images, or further HTML pages) publishes its other files through `files`, which maps each published path to a source file. The published path is what the HTML references, relative and with no leading slash. The page opens from a `file://` link, so it can link to these files and load them as images, stylesheets and classic scripts, but it cannot `fetch()`, import or start Workers from them: data a script reads goes inline. Only the page itself is wrapped in a document skeleton at publish time: an HTML file in `files` is another page served without one, so Claude starts each with its own `<!doctype html>`, charset and viewport metas and base styles, or, without the doctype, it renders in quirks mode with browser defaults. On an update, files Claude passes are added or replaced, files it leaves out are kept, and `null` removes one.\n\n**Calls**: `action` picks one (publish when omitted):\n- **publish** (the default): takes `file_path`, plus `icon` on a first publish and an optional one-sentence `description`, and with `url` updates that existing artifact in place.{open_note}\n- **quickstart**: returns the page contract and the design guidance for a plain page. It is read-only. Only plain pages are made here.\n- **read**: takes `url` and returns the published page's content, without the skeleton that publishing adds.\n- **list**: returns the artifacts published on this machine, newest first, with title, link, last-updated time and source file.\n- **delete**: with `url`, permanently deletes a published artifact and its versions, which cannot be undone. Claude does this only when the person asks for that artifact to be deleted or unpublished, or says they did not want it published, never on its own initiative. The source file stays.\n- **open**: takes `url` and opens that existing artifact in the browser without changing it. Claude uses it when the person asks to see one. An artifact Claude just published needs no open.\n\n**To update** an artifact published earlier in this session, Claude calls Artifact again with the same file path, which republishes it to the same link. A different path creates a new link, so Claude changes the path only when it wants a separate artifact. For a small change to a page published from a file in this session, Claude can send the change as `edits` on the publish call itself (old_str/new_str pairs copied exactly from the file as it now stands) instead of editing the file first. For a change to several files at once, or a rewrite of most of a page, Claude makes the change with Edit, not a shell command, and publishes the artifact again with the same file path in the same response: the Edit call(s) first, then the publish, with no Read and without waiting for the Edit result. The calls run in the order sent, so the publish carries the edited file. If one of those Edit calls does not apply, the publish still goes out without that change, so Claude corrects the Edit and publishes again. Either way, Claude reads the file first only when its text is not in this conversation or the change cannot be placed exactly from that text.\n\n**To update an artifact from another file or an earlier session**, Claude passes that artifact's link as `url`. Claude does this whenever the person wants an existing artifact changed or its link kept, and finds the link with `action: \"list\"` or by asking the person. Claude first reads the artifact with `action: \"read\"` and builds on the version that comes back. Publishing without `url` creates a separate artifact, even from a path published in an earlier session. If the person asks where to find their artifacts again, `action: \"list\"` lists them, and each one is a folder in {store}.\n\n**Files Claude did not write**: Claude reads the whole file before publishing it, even when the person asks it not to. Publishing distributes the content, and Claude never distributes what it has not seen. A request for privacy is a reason to read before publishing, not an exemption. If Claude cannot read the file, it does not publish it.\n\n**New artifacts**: every artifact here is a plain page. When the person wants something new made, in whatever words — a deck, a document for others to read (not one that belongs in the codebase), a visual design or any other page — Claude's first call is `action: \"quickstart\"`, before loading a skill or writing a file, once per new artifact. The quickstart result replaces loading the artifact-design skill.\n\n**Claude never publishes** a page that impersonates a real person or organization, for example by using their name, branding, byline or domain. Claude also never publishes fabricated records, receipts or reviews presented as genuine, forms or flows that collect credentials or payment details under false pretenses, or content that targets a private individual. Claude refuses whether it wrote the page or the person supplied it, and whatever purpose is claimed, such as a prop or a test, when the page would work as the real thing. If publishing is refused, Claude does not suggest other ways to host or share the page.\n";
+var description_default = `Publishes an HTML file as an Artifact: a web page saved on this machine in {store}{opened}, at a link that stays the same when the page is updated.
 
-// plugins/artifact-design/src/text/codex-lead.md
-var codex_lead_default = `Publishes an HTML file as an Artifact: a web page written as a local file in {store}{opened}. "Artifact" here, in quickstart's result and in the skills means this tool (full name mcp__artifact__Artifact). Use it when a page would be clearer than terminal text, and for finished work meant for other people (a report, a plan, the case for a decision): publish it and give the person the link. When the person wants something new made, your first call is action "quickstart", before loading a skill or writing a file: it returns the page contract and design guidance, the full guidance this short description leaves out. Then write the page to a file and publish it in the same turn. The input schema's description lists the calls.
+Use it when a page would be clearer than terminal text, or when the person will use the page rather than only read it: a report, explainer, plan, comparison, dashboard, tool, mockup, deck, app or game, and whenever they ask for an artifact or a page. Finished work meant for other people, such as a write-up for a team or the case for a decision, is published even when the request is phrased as a question, and you give the person the link. You may publish without being asked, because a published page stays on this machine. Don't publish when the person wants the file itself, only your own quick verdict, or advice they will act on right away in their code: answer in the terminal, and at most offer the page in one line.
+
+For a new page, your first call is \`action: "quickstart"\`, before loading a skill or writing a file, once per new page. It returns the page rules and the design system to build the page with, which this description leaves out. Then write the page to a file and publish it in the same message.
+
+To change a page made in this session, edit its file and publish the same \`file_path\` again: the link stays. To change a page from another file or an earlier session, find it with \`list\`, \`read\` it, and publish with its \`url\`.
+
+Read the whole of any file you did not write before publishing it. Never publish a page that impersonates a real person or organization, fabricated records, receipts or reviews presented as genuine, or a form that collects credentials or payment details under false pretences, whatever purpose is claimed. Content the person called sensitive stays a file until they decide to publish it.
 `;
 
-// plugins/artifact-design/src/text/codex-rest.md
-var codex_rest_default = 'Write the page content to a file (in {drafts} unless the person names another location) and pass its absolute path. Page contract essentials: write only the page content (no doctype, html, head or body tags: publishing adds the skeleton), <title> and <style> first; the <title> is a name of two to four words and the explanation goes in `description`. Colors are tokens on :root, redefined for dark mode under @media (prefers-color-scheme: dark) guarded by :root:not([data-theme="light"]) and again under :root[data-theme="dark"]; body gets an explicit background. Scripts load only from cdnjs.cloudflare.com (preferred), cdn.jsdelivr.net/npm/, unpkg.com, cdn.tailwindcss.com or code.jquery.com, each pinned to an exact version at least two weeks old; stylesheets only from Google Fonts; everything else inline. The layout works at phone width (16px gutter, no horizontal scroll); the page stays at 16MB or less. Author .html; publish .md only when a loaded skill asks for it. localStorage works only per viewer, and every file:// page may share it: prefix keys with the page\'s name, wrap it in try/catch and render correctly without it. The page can\'t fetch() its own files: put the data a script reads inline.\nPublish finished work meant for others even when the request is phrased as a question; when the person asks only for your own verdict, answer in the terminal and offer the page in one line. Read the whole of any file you did not write before publishing it.\nCalls (action; publish when omitted):\n- publish: file_path, plus icon on a first publish and a one-sentence description; with url, updates that artifact. files maps published paths to source files for a multi-file page.{open_note}\n- quickstart: returns the page contract and design guidance.\n- read: url; returns the page content without its skeleton.\n- list: the artifacts on this machine, with links and source files.\n- open: url; opens it in the browser.\n- delete: url; only when the person asks.\nTo update, publish the same file path again in this session, with edits for a small change; pass url (from list) to update an artifact from another file or session, after reading it.\nNever publish a page that impersonates a real person or organization, fabricated records presented as genuine, or flows that collect credentials or payment details under false pretenses.\n';
-
 // plugins/artifact-design/src/tool.ts
-var INSTRUCTIONS = "This server's Artifact tool publishes HTML pages (reports, explainers, plans, dashboards, tools, " + 'mockups) as local files; before writing a new one, call it with action "quickstart".';
-var text2 = (file) => file.replace(/\n$/, "");
-var CHECK_DESCRIPTION = "Check a page before publishing it with the `Artifact` tool.\n\n" + '**Preview**: `action: "preview"` with a `file_path` renders that one page file locally the way publish wraps it, ' + "in light and dark themes at desktop and phone widths, and returns the screenshots with a mechanical checklist of " + "layout and load problems, so you can see the page and fix what they show before publishing. It uploads nothing " + "and needs no artifact URL.";
-var PREVIEW_ACTION = "'preview' renders a local page file before you publish it — pass `file_path` (one .html file; files " + "published beside it are not loaded), optionally `widths` (viewport widths in px, default 1280 and 390) and " + "`themes` ('light', 'dark', default both) — and returns a screenshot per width and theme (each shows at most " + "the top 1568 px of the page) plus a checklist of layout and load problems (horizontal overflow, clipped content, " + "text split by a grid or flex parent, SVG text too small for a phone, a side accent that bends round a rounded " + "corner, theme-only color variables, blocked or " + "local-only loads, diagram and console errors). Nothing is uploaded.";
-var CODEX_LEAD = text2(codex_lead_default);
-var CODEX_REST = text2(codex_rest_default);
-var DESCRIPTION_ROOM = 4096;
-var FIRST_CALL = ' When the person wants something new made, Claude\'s first call is `action: "quickstart"`, before' + " loading a skill or writing a file (see **New artifacts**).";
+var INSTRUCTIONS = "This server's Artifact tool publishes HTML pages (reports, explainers, plans, dashboards, tools, " + 'mockups, decks) as local files; before writing a new one, call it with action "quickstart".';
+var CHECK_DESCRIPTION = "Check a page before publishing it with the `Artifact` tool.\n\n" + '**Preview**: `action: "preview"` with a `file_path` renders that one page file locally the way publish wraps it, ' + "in light and dark themes at desktop and phone widths, and returns the screenshots with a mechanical checklist of " + "layout and load problems, so you can see the page and fix what they show before publishing. A page that uses the " + "design system installed here is rendered with it and also put through that system's own checks. It publishes " + "nothing and needs no artifact link.";
+var PREVIEW_ACTION = "'preview' renders a local page file before you publish it — pass `file_path` (one .html file; files " + "published beside it are not loaded), optionally `widths` (viewport widths in px, default 1280 and 390) and " + "`themes` ('light', 'dark', default both) — and returns a screenshot per width and theme (each shows at most " + "the top 1568 px of the page) plus a checklist of layout and load problems (horizontal overflow, also at the " + "widths in between, clipped content, " + "text split by a grid or flex parent, SVG text too small for a phone, a side accent that bends round a rounded " + "corner, theme-only color variables, blocked or local-only loads, diagram and console errors).";
 var INSTEAD = {
+  edits: "edit the file, then publish the same `file_path` again",
   capabilities: "a page here is static HTML",
   type_url: 'every artifact here is a plain page: call action "quickstart", then publish an HTML file',
   asset: "pass images and other files with `files`",
@@ -28980,19 +26350,19 @@ var INSTEAD = {
   file_paths: "pass images and other files with `files`"
 };
 function describe(setting) {
-  return text2(description_default).replaceAll("{opened}", () => setting.opens ? ", and opened in the browser" : "").replaceAll("{open_note}", () => setting.opens ? " A first publish opens the page in the browser." : "").replaceAll("{drafts}", () => setting.drafts).replaceAll("{store}", () => setting.store);
+  return description_default.replace(/\n$/, "").replaceAll("{opened}", () => setting.opens ? " and opened in the browser on its first publish" : "").replaceAll("{store}", () => setting.store);
 }
-function schema3(compact = false) {
-  const actions = ["publish", "quickstart", "read", "list", "open", "delete"];
-  const listed = actions.map((action) => `'${action}'`).join(", ");
-  const source = { type: "string", description: "An absolute path to the source file." };
+var ACTIONS = ["publish", "quickstart", "guide", "read", "list", "open", "delete"];
+function schema3() {
   const fromSource = {
     type: "object",
-    properties: { from: source, contentType: { type: "string" } },
+    properties: { from: { type: "string" }, contentType: { type: "string" } },
     required: ["from"]
   };
-  const mapItems = [source, fromSource, { type: "null" }];
-  const filesMap = { type: "object", additionalProperties: { anyOf: mapItems } };
+  const filesMap = {
+    type: "object",
+    additionalProperties: { anyOf: [{ type: "string" }, fromSource, { type: "null" }] }
+  };
   const filesList = {
     type: "array",
     items: {
@@ -29009,94 +26379,47 @@ function schema3(compact = false) {
   const properties = {
     action: {
       type: "string",
-      enum: actions,
-      description: `One of ${listed}. Omitting it means 'publish'. **Calls** in the description says what each one does and takes, except as noted here.`
+      enum: [...ACTIONS],
+      description: "publish (the default): `file_path`, with `icon` and `description` on a first publish; with `url`, updates " + "that artifact from this file. quickstart: the page rules and the design system or design guidance; " + "read-only, first for every new page. guide: with `parts`, sections of the installed design system's guide " + "and its components' docs and worked examples; without, their names. read: `url`; the page's content " + "without the skeleton publishing adds. list: the artifacts on this machine, newest first, with links and " + "source files. open: `url`; opens it in the browser, only when the person asks to see an older one. " + "delete: `url`; removes the artifact and its versions for good, only when the person asks."
     },
     file_path: {
       type: "string",
-      description: "publish: the absolute path of the page file (.html, or .md only when a skill says so). A short, distinctive basename also serves as the title when nothing else gives one."
+      description: "publish: the absolute path of the page's .html file."
     },
-    description: { type: "string", description: "publish: one sentence explaining the page." },
+    description: { type: "string", description: "publish: one sentence saying what the page is." },
     title: {
       type: "string",
-      description: "publish: the fallback title for an HTML page whose file has no <title>. It is a name, not a summary, and Claude keeps it the same across redeploys."
+      description: "publish: the page's name when the file has no <title>. The <title> wins when there is one."
     },
     icon: {
       type: "string",
-      description: "publish: one short generic word for the page's tab icon, such as chart, calendar, recipe, code or map: a plain signifier, never a product or brand name. Include it on every page's first publish and omit it on a redeploy so the artifact keeps its icon, passing a new one only when the person asks."
+      description: "publish: one generic word for the tab icon, such as chart, calendar, recipe, code or map; never a brand. " + "Pass it on a first publish and leave it out after, so the artifact keeps its icon."
     },
     files: {
       anyOf: [filesMap, filesList],
-      description: `publish: supporting files, as {"published/path": "/absolute/source/path"} (or {"from": "/absolute/source/path", "contentType": "..."}); null removes one. A list of paths relative to the page's folder publishes each file at that same path.`
+      description: 'publish: supporting files, as {"published/path": "/absolute/source/path"}; null removes one. A list of ' + "paths relative to the page's folder publishes each at that same path."
     },
-    edits: {
+    parts: {
       type: "array",
-      minItems: 1,
-      maxItems: MAX_EDITS,
-      items: {
-        type: "object",
-        properties: {
-          old_str: { type: "string", description: "Text copied exactly from the file; must occur once." },
-          new_str: { type: "string", description: "Its replacement; empty deletes old_str." }
-        },
-        required: ["old_str", "new_str"],
-        additionalProperties: false
-      },
-      description: "publish: small changes Claude makes to the file at `file_path` in this same call, instead of editing the file with Edit and publishing after. Use it on a page (add `url` to update an artifact from another file or a later session). Not allowed with `files`. Each old_str is text copied exactly from the file as it now stands and must occur in it exactly once; new_str takes its place (empty deletes it). The edits apply in order, all or none: the file is published with them and then saved with them on disk, so it stays the source for later changes; on a miss nothing is changed or published, and the result says which edit failed and why."
+      items: { type: "string" },
+      maxItems: 12,
+      description: "guide: what to return, each a heading of the design system's guide, one of its documents, or a component's name."
     },
     url: {
       type: "string",
-      description: "publish: an existing artifact's link to update. read, open and delete: the artifact's link."
+      description: "The link of an existing artifact: the one to update, read, open or delete."
     }
   };
-  if (compact) {
-    const short = {
-      action: "Publish when omitted.",
-      file_path: "Absolute path of the page file.",
-      description: "One sentence explaining the page.",
-      title: "Fallback name when the page has no <title>.",
-      icon: "One generic word for the tab icon, on a first publish.",
-      files: '{"published/path": "/absolute/source"}; null removes one.',
-      edits: "Exact old_str/new_str pairs applied to file_path, then published and saved.",
-      url: "An artifact's link (from list)."
-    };
-    for (const [name, description] of Object.entries(short))
-      properties[name].description = description;
-    const pair = properties.edits.items.properties;
-    pair.old_str = { type: "string" };
-    pair.new_str = { type: "string" };
-    mapItems[0] = { type: "string" };
-    fromSource.properties = { from: { type: "string" }, contentType: { type: "string" } };
-  }
   return { type: "object", properties, additionalProperties: false };
 }
-function tool(codex, setting) {
-  if (codex) {
-    const fill = (codex) => codex.replaceAll("{opened}", () => setting.opens ? " and opened in the browser" : "").replaceAll("{open_note}", () => setting.opens ? " A first publish opens the page." : "").replaceAll("{drafts}", () => setting.drafts).replaceAll("{store}", () => setting.store);
-    return new Tool({
-      name: "Artifact",
-      description: fill(CODEX_LEAD),
-      inputSchema: { description: fill(CODEX_REST), ...schema3(true) }
-    });
-  }
-  const paragraphs = describe(setting).split(`
-
-`);
-  let count = 1;
-  while (count < paragraphs.length && upFront(paragraphs.slice(0, count + 1)).length <= DESCRIPTION_ROOM)
-    count++;
+function tool(setting) {
   return new Tool({
     name: "Artifact",
-    description: upFront(paragraphs.slice(0, count)),
-    inputSchema: { description: paragraphs.slice(count).join(`
-
-`), ...schema3() },
+    description: describe(setting),
+    inputSchema: schema3(),
     _meta: { "anthropic/alwaysLoad": true }
   });
 }
-var upFront = ([first, ...more]) => [first + FIRST_CALL, ...more].join(`
-
-`) + "\n\nThe rest of this description is the `description` of the tool's input schema.";
 function checkSchema() {
   return {
     type: "object",
@@ -29143,7 +26466,6 @@ function unknownParameter(args, check = false) {
 
 // plugins/artifact-design/src/artifacts.ts
 var SESSIONS_KEPT = 8;
-var MISS_ROOM = 40000;
 var str = (value) => typeof value === "string" && value ? value : null;
 var pyStr = (value) => value === null || value === undefined ? "None" : `${value}`;
 var sessionsOf = (entry) => Array.isArray(entry.sessions) ? entry.sessions.filter((id) => typeof id === "string") : [];
@@ -29158,6 +26480,9 @@ function badPreviewOption(args) {
   }
   return null;
 }
+var SYSTEM_GUIDE_ROOM = 22000;
+var LOOK = (systemChecks) => "Before publishing, look at the page once with `ArtifactCheck`. It renders the file as publishing would, at " + "desktop and phone widths in light and dark, and lists what breaks: overflow, clipped text, colours that ignore " + `the theme, blocked loads and script errors${systemChecks}. Fix what it shows in one pass of edits, then publish; ` + "look a second time only after a large fix. A page whose point is logic (dates, money, scoring) may also get one " + "run of its pure function on a sample input. None of this becomes a loop, because the person is waiting for a " + "link: no further screenshots of a page that passed and no scripts that probe the DOM. If the person later " + "reports something visibly broken, fix that, look once more and publish again.";
+var NO_LOOK = "This session has no page preview. If it offers another way to see the page, take one screenshot of the local " + "file and fix what it shows; otherwise publish without a look. A page whose point is logic (dates, money, " + "scoring) may get one run of its pure function on a sample input, or one syntax check of its script. Nothing " + "more, because the person is waiting for a link. If the person later reports something visibly broken, fix that " + "and publish again.";
 
 class Artifacts extends Service()("artifact-design/Artifacts") {
   static layer = effect(Artifacts, gen2(function* () {
@@ -29167,81 +26492,59 @@ class Artifacts extends Service()("artifact-design/Artifacts") {
     const store = yield* Store;
     const drafts = yield* Drafts;
     const skill = yield* Skill2;
+    const designSystem = yield* DesignSystem;
     const browser = yield* Browser;
     const preview = yield* Preview;
     const failed = (error) => new ActionError({ message: messageOf(error) });
-    const refuse = (message) => fail7(new Refusal({ message }));
     const fail = (message) => fail7(new ActionError({ message }));
     const draftsRoots = [drafts.root, yield* resolvePath(drafts.root)];
     const sessionSources = yield* make32(new Map);
     const ours = (source, entry) => config.sessionId !== null && sessionsOf(entry).includes(config.sessionId) || draftsRoots.some((root) => (partsBelow(paths, root, source)?.length ?? 0) >= 2);
-    const highlightFor = (content) => usesHighlight(content) ? skill.highlightRuntime : succeed7("");
+    const systemGuide = (system, checked) => {
+      const { shown, left } = fitGuide(system.readme, SYSTEM_GUIDE_ROOM);
+      const more = left.length > 0 || system.docs.length > 0 || system.components.length > 0;
+      return `## Design system: ${system.name}
+
+` + `The ${system.name} design system is installed on this machine, and pages here are built with it unless ` + "the person asks for another look. It sets the look, the parts and the voice. The page rules above still " + `hold, and where the two differ on how a page looks, the system wins.
+
+` + `Put \`${systemTag(system.name)}\` at the top of the page, after its \`<title>\`. Publishing then adds ` + "the system's tokens, stylesheet and scripts to the page" + (checked ? ", and so does `ArtifactCheck`" : "") + ". So write only the page's own markup, with a `<style>` of your own only for what the system has no " + "part for, and leave out any `<link>` or `<script>` its guide says to load the system's files with.\n\n" + (more ? 'The rest of the system is one call away: `action: "guide"` with `parts` returns, in full, each ' + "section, document or component you name, a component with its worked example. Before writing the " + "page, ask in one call for the example closest to the page and for every part the page will use " + `that isn't given in full below. Build from those examples, not from memory.
+
+` + `${designSystem.contents(system)}
+
+` : "") + (left.length ? `The guide follows as far as the section before "${left[0].title}"; the sections after it come from \`guide\`.` : "The guide follows.") + `
+
+---
+
+${shown}`;
+    };
     const quickstart = gen2(function* () {
-      let guidance = (yield* skill.guidance).replace(`
+      const checked = config.previewSwitch && (yield* preview.offered);
+      const system = yield* designSystem.installed;
+      const systemChecks = system !== null && system.checks.length ? `, and for a page built with ${system.name}, that system's own checks (${system.checks.join(", ")})` : "";
+      const contract = (yield* skill.contract).replaceAll("{drafts}", () => drafts.folder).replaceAll("{check}", () => checked ? LOOK(systemChecks) : NO_LOOK);
+      return "Everything for a new page follows: the rules every page keeps, how to work, and then " + (system !== null ? `the ${system.name} design system the page is built with` : "how to design it") + ". It stands in for the `artifact-design` skill, so don't load that as well.\n\n" + contract + `
 
-## Process`, () => `
-
-
-
-## Process`);
-      if (!(config.previewSwitch && (yield* preview.offered))) {
-        guidance = guidance.replace("one `ArtifactCheck` preview, or else one screenshot of the local file; if the session offers none of these, " + "skip the look. The preview renders desktop and phone widths in light and dark and lists overflow, colors " + "that ignore the theme, blocked loads and console errors, including a script that fails to parse, so nothing " + "it covers needs a check of your own.", () => "one screenshot of the local file; if the session offers no way, skip the look.");
-      }
-      return "For a plain page, the page-design guidance follows. It is the `artifact-design` skill's own " + "text, so do not load that skill as well. Write the page to a file and publish it in the same " + "message: the two calls run in order. Unless the person named a location, the file goes in " + `${drafts.folder}, not in the project. In this text, Claude means you.
-
-` + guidance + "\n\nWhen the page includes a diagram, also load the `artifact-diagramming` skill" + (config.codex ? "" : " (`artifact-design:artifact-diagramming` in the Skill tool)") + " before writing it.";
+` + (system !== null ? systemGuide(system, checked) : (yield* skill.design) + "\n\nWhen the page includes a diagram, also load the `artifact-diagramming` skill before writing it.");
     });
-    const saveEdits = (source, before, text, count) => gen2(function* () {
-      const now = yield* fs.readFile(source).pipe(option2);
-      if (isNone2(now) || Buffer.compare(now.value, before) !== 0) {
-        return savedMessage(count, "changed_during_publish");
+    const guide = (args) => gen2(function* () {
+      const { parts } = args;
+      if (parts !== undefined && !(Array.isArray(parts) && parts.every((part) => typeof part === "string"))) {
+        return yield* fail("`parts` is a list of names: guide sections, documents or components");
       }
-      const links = yield* fs.stat(source).pipe(map6((info) => getOrElse(info.nlink, () => 1n)), option2);
-      if (isNone2(links))
-        return savedMessage(count, "changed_during_publish");
-      if (links.value > 1n)
-        return savedMessage(count, "hard_linked");
-      const bom = before[0] === 239 && before[1] === 187 && before[2] === 191 ? "\uFEFF" : "";
-      const data = new TextEncoder().encode(bom + text);
-      const file = yield* fs.open(source, { flag: "r+" }).pipe(option2);
-      if (isNone2(file))
-        return savedMessage(count, "not_writable");
-      return yield* file.value.writeAll(data).pipe(andThen2(file.value.truncate(data.length)), as2(savedMessage(count)), orElseSucceed2(() => savedMessage(count, "write_failed")));
-    }).pipe(scoped2);
+      const found = yield* designSystem.guide(parts ?? []);
+      return found ?? 'No design system is installed here, so there is no guide: `action: "quickstart"` returns the design ' + "guidance for a page.";
+    });
     const publish = (args) => gen2(function* () {
       if (!args.file_path)
         return yield* fail("publish needs file_path: write the page to a file first");
       const source = yield* store.absolute(args.file_path, "file_path");
       if (!(yield* store.isFile(source)))
         return yield* fail(`${source} doesn't exist; write the page there first`);
-      let edits = null;
-      if (args.edits !== undefined) {
-        const parsed = editsOf(args.edits);
-        if (typeof parsed === "string")
-          return yield* refuse(`${parsed} Nothing was published.`);
-        if (args.files !== undefined) {
-          return yield* refuse("`edits` changes only the file at `file_path`: not with `files` (publish the other files in a call " + "without edits). Nothing was published.");
-        }
-        const below = partsBelow(paths, store.path, source);
-        if (below && below.length >= 2 && (yield* store.load())[0].has(below[0])) {
-          return yield* refuse(`No edits were applied and nothing was published: ${source} is a file inside the published artifact ` + `${below[0]} in ${store.path}, and \`edits\` changes a page's source file. Publish the source file ` + "with edits instead, or edit this file and publish it without edits.");
-        }
-        edits = parsed;
+      if (/\.(?:md|markdown)$/i.test(source)) {
+        return yield* fail("a page is an .html file: build the page from the Markdown file's content and publish that");
       }
       const bytes = yield* fs.readFile(source).pipe(mapError3(failed));
-      const decoded = yield* result2(decodeSource(bytes));
-      if (decoded._tag === "Failure") {
-        if (edits)
-          return yield* refuse(`No edits were applied: ${decoded.failure.message}`);
-        return yield* fail(`file_path: ${decoded.failure.message}`);
-      }
-      let raw = decoded.success;
-      if (edits) {
-        const applied = applyEdits(raw, edits);
-        if (!applied.ok)
-          return yield* refuse(missMessage(applied.miss, edits, raw, MISS_ROOM));
-        raw = applied.text;
-      }
+      const raw = yield* decodeSource(bytes).pipe(mapError3((error) => new ActionError({ message: `file_path: ${error.message}` })));
       const [index, repaired] = yield* store.load(true);
       const notes = repaired ? [repaired] : [];
       let slug = null;
@@ -29286,51 +26589,43 @@ class Artifacts extends Service()("artifact-design/Artifacts") {
           }
         }
       }
-      const name = paths.basename(source);
-      const extension = paths.extname(name);
-      const stem = paths.basename(name, extension);
-      const isMarkdown = [".md", ".markdown"].includes(extension.toLowerCase());
-      let content;
-      let title;
-      let oldDescription = null;
-      let lang = null;
-      let cover = null;
-      if (isMarkdown) {
-        [content] = markdownPage(raw, name);
-        title = entry?.title || name;
-      } else {
-        ({ content, description: oldDescription, lang, cover } = unwrap7(raw));
-        if (cover === null && isFullDocument(content))
-          notes.push(FULL_DOCUMENT_NOTE);
-        title = pageTitle(content);
-        const asked = str(typeof args.title === "string" ? args.title.trim() : null);
-        if (!title && asked) {
-          title = asked;
-          content = `<title>${escape(title)}</title>
+      const stem = paths.basename(source, paths.extname(source));
+      const unwrapped = unwrap7(raw);
+      const { description: oldDescription, lang, cover } = unwrapped;
+      let { content } = unwrapped;
+      if (cover === null && isFullDocument(content))
+        notes.push(FULL_DOCUMENT_NOTE);
+      let title = pageTitle(content);
+      const asked = str(typeof args.title === "string" ? args.title.trim() : null);
+      if (!title && asked) {
+        title = asked;
+        content = `<title>${escape(title)}</title>
 ` + content;
-        } else if (title && asked && title !== asked && title !== pageTitle(`<title>${asked}</title>`)) {
-          const cut = (text) => {
-            const chars = Array.from(text);
-            return chars.length > 120 ? `${chars.slice(0, 120).join("")}…` : text;
-          };
-          notes.push(`The document's own <title> ("${cut(title)}") names this artifact; the \`title\` parameter ("${cut(asked)}") ` + "was not applied — the tag always wins. To rename, edit the <title> in the HTML.");
-        }
-        if (!title) {
-          notes.push("The page has no <title> in its first 8KB (one after an <svg> doesn't count), so the " + "artifact is named after the file: put a <title> at the top, or pass `title`.");
-        }
+      } else if (title && asked && title !== asked && title !== pageTitle(`<title>${asked}</title>`)) {
+        const cut = (text) => {
+          const chars = Array.from(text);
+          return chars.length > 120 ? `${chars.slice(0, 120).join("")}…` : text;
+        };
+        notes.push(`The page's own <title> ("${cut(title)}") names this artifact, so the \`title\` parameter ("${cut(asked)}") ` + "was not applied. To rename the artifact, edit the <title> in the file.");
+      }
+      if (!title) {
+        notes.push("The page has no <title> in its first 8KB (one after an <svg> doesn't count), so the " + "artifact is named after the file: put a <title> at the top, or pass `title`.");
       }
       const given = str(args.description) ?? (entry && !entry.derived ? entry.description || null : null) ?? oldDescription;
-      const description = given ?? (isMarkdown ? null : pageDescription(content, stem) || null);
+      const description = given ?? (pageDescription(content, stem) || null);
       const icon = str(args.icon) ?? (entry?.icon || null);
       if (fetchesOwnFiles(content))
         notes.push(OWN_FILES_FETCH_NOTE);
-      const published = wrapPage(content, description, icon, yield* highlightFor(content), lang, cover);
+      const system = yield* designSystem.kitFor(content);
+      if (system.missing)
+        notes.push(missingSystemNote(system.missing, system.installed, "published"));
+      const published = wrapPage(content, description, icon, lang, cover, system.kit);
       if (Buffer.byteLength(published) > SIZE_LIMIT) {
         return yield* fail("the page is over 16MB; shrink it or move data into supporting files");
       }
       const first = slug === null || entry === null;
       if (slug === null || entry === null) {
-        const base = slugify((isMarkdown ? null : title) || stem);
+        const base = slugify(title || stem);
         slug = base;
         for (let n = 2;index.has(slug) || (yield* fs.exists(paths.join(store.path, slug)).pipe(orElseSucceed2(() => false))); n++) {
           slug = `${base}-${n}`;
@@ -29356,7 +26651,7 @@ class Artifacts extends Service()("artifact-design/Artifacts") {
         entry.source = source;
       Object.assign(entry, {
         page: "index.html",
-        title: title || (isMarkdown ? name : stem),
+        title: title || stem,
         updated: now,
         description,
         icon
@@ -29379,12 +26674,9 @@ class Artifacts extends Service()("artifact-design/Artifacts") {
       const lines = [
         `Published ${source} at ${link} (Version ${entry.version})` + (first && icon ? ` Icon: "${icon}".` : "")
       ];
-      if (edits)
-        lines.push(yield* saveEdits(source, bytes, raw, edits.length));
       lines.push(...notes);
-      lines.push("To update: publish the same file path again in this session (keeps this link); pass `url` to " + "update this artifact from another file or a later session.");
-      lines.push("The link is a file on this machine. If the page is meant for someone else, tell the user when you " + "present the page that to share it they send the published page, " + ((yield* store.hasOtherFiles(folder, pageFile)) ? `the ${folder} folder, without its .versions folder` : pageFile) + ", not the source file, which lacks the page skeleton.");
-      lines.push("The files you sent are still on disk. For the next small change to this file, send it as `edits` on a " + "publish of the same file_path (old_str/new_str pairs copied exactly from the file as it now stands): that " + "one call changes the file and what is published together, with no separate read or edit. To change several " + "files, or to rewrite most of the page, edit the files and publish them in the same response; if an edit " + "did not apply, correct it and publish again. If the file's text is no longer in this conversation, read " + "it first.");
+      lines.push("To change it, edit the file and publish the same file path again in this session: the link stays. " + "Pass `url` to update this artifact from another file or in a later session.");
+      lines.push("The link is a file on this machine. If the page is meant for someone else, tell the person when you " + "present it that to share it they send the published page, " + ((yield* store.hasOtherFiles(folder, pageFile)) ? `the ${folder} folder, without its .versions folder` : pageFile) + ", not the source file, which lacks the page skeleton" + (system.kit ? " and the design system" : "") + ".");
       if (first) {
         if (!config.openPages) {
           lines.push("The page was not opened in a browser (ARTIFACT_OPEN=0); give the user the link.");
@@ -29418,7 +26710,7 @@ class Artifacts extends Service()("artifact-design/Artifacts") {
       const text = yield* fs.readFileString(paths.join(store.path, slug, entry.page)).pipe(mapError3(failed));
       const content = entry.page.endsWith(".html") ? unwrap7(text).content : text;
       return `${store.linkOf(slug, entry)} (Version ${pyStr(entry.version)}, source ${entry.source || "unknown"})
-` + "This is the page content without the skeleton (doctype, head, base styles, Mermaid runtime); " + `publishing adds the skeleton again.
+` + "This is the page content without what publishing adds (the document skeleton, and the design " + `system's files on a page that asks for one); publishing adds them again.
 
 ` + content;
     });
@@ -29451,6 +26743,7 @@ class Artifacts extends Service()("artifact-design/Artifacts") {
     const actions = {
       publish: (args) => store.withLock(publish(args)),
       quickstart: () => quickstart,
+      guide,
       read,
       list: () => list,
       open,
@@ -29470,9 +26763,6 @@ class Artifacts extends Service()("artifact-design/Artifacts") {
       }
       if (typeof action !== "string" || !Object.hasOwn(actions, action)) {
         return textResult(`Unknown action ${repr(action)}.`, true);
-      }
-      if (args.edits !== undefined && action !== "publish") {
-        return textResult(`\`edits\` applies only to a publish of \`file_path\` — remove it from this "${action}" call.`, true);
       }
       return yield* answer(action, actions[action](args));
     });
@@ -29502,14 +26792,9 @@ var ArtifactTool = effectDiscard(gen2(function* () {
   const server = yield* McpServer;
   const artifacts = yield* Artifacts;
   const config = yield* ServerConfig;
-  const drafts = yield* Drafts;
   const browser = yield* Browser;
   yield* server.addTool({
-    tool: tool(config.codex, {
-      store: config.store,
-      drafts: drafts.folder,
-      opens: config.openPages && browser.available
-    }),
+    tool: tool({ store: config.store, opens: config.openPages && browser.available }),
     annotations: empty(),
     handle: (payload) => artifacts.call(argumentsOf(payload))
   });
@@ -29529,7 +26814,7 @@ var CheckTool = effectDiscard(gen2(function* () {
     handle: (payload) => artifacts.check(argumentsOf(payload))
   });
 })).pipe(provide2(PreviewOffered.layer));
-var Services = Artifacts.layer.pipe(provideMerge(mergeAll2(Preview.layer, Browser.layer)), provideMerge(mergeAll2(Store.layer, Skill2.layer)), provideMerge(Drafts.layer), provideMerge(ServerConfig.layer), provideMerge(layer10));
+var Services = Artifacts.layer.pipe(provideMerge(mergeAll2(Preview.layer, Browser.layer)), provideMerge(mergeAll2(Store.layer, Skill2.layer, DesignSystem.layer)), provideMerge(Drafts.layer), provideMerge(ServerConfig.layer), provideMerge(layer10));
 var Server = layerStdio({
   name: "artifact",
   version: "0.1.0",

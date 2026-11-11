@@ -1,0 +1,35 @@
+{
+  "element_overflow": [
+    {
+      "on": ".sk-page, .sk-hero",
+      "wider": true
+    },
+    {
+      "on": ".sk-slide",
+      "wider": true,
+      "taller": true
+    },
+    {
+      "on": ".sk-sr, .sk-sr *",
+      "wider": true,
+      "taller": true
+    },
+    {
+      "on": ".sk-code code, .sk-code code *",
+      "wider": true
+    },
+    {
+      "on": ".sk-terminal code, .sk-terminal code *",
+      "wider": true
+    },
+    {
+      "on": "[class^='sk-'], [class*=' sk-'], .sk-page section, .sk-page div, .sk-steps > li",
+      "taller": 24
+    },
+    {
+      "on": ":has(> .sk-sticky)",
+      "wider": 48,
+      "taller": 48
+    }
+  ]
+}

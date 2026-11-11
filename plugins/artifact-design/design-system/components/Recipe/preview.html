@@ -1,0 +1,73 @@
+<!-- @dsCard group="Pages" height=2100 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}
+.ingredients{list-style:none;margin:0;padding:0;display:grid}
+.ingredients li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px 0;border-top:1px solid var(--line);align-items:baseline}
+.ingredients li:last-child{border-bottom:1px solid var(--line)}
+.ingredients .qty{font:500 14.5px var(--font-display);color:var(--ink);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.ingredients .sk-check{font-size:16px}
+</style></head>
+<body>
+<main class="sk-page sk-enter">
+  <div class="sk-hero" data-layout="band">
+    <div>
+      <div class="sk-label">Weeknight · vegetarian</div>
+      <h1 class="sk-title">Shakshuka in one pan, in thirty minutes</h1>
+      <p class="sk-lede">Eggs set gently in a spiced tomato sauce. Most of the time is the sauce simmering, so it's a good one to cook while you talk.</p>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="pan" data-sk-boil aria-label="Eggs cooking in a pan"></div>
+  </div>
+
+  <div class="sk-stats" style="--min:150px">
+    <div class="sk-stat"><div class="sk-label">Ready in</div><div class="sk-stat-v">30<small>min</small></div></div>
+    <div class="sk-stat"><div class="sk-label">Hands on</div><div class="sk-stat-v">10<small>min</small></div></div>
+    <div class="sk-stat"><div class="sk-label">One pan</div><div class="sk-stat-v">26<small>cm</small></div><p>Or anything with a lid.</p></div>
+    <div class="sk-stat"><div class="sk-label">Serves</div><div class="sk-stat-v" id="serves-n">2</div></div>
+  </div>
+
+  <section class="sk-section sk-two" data-top style="grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)">
+    <div class="sk-stack" style="--gap:16px">
+      <header class="sk-row" data-between><h2 class="sk-h2">You'll need</h2><div class="sk-seg" id="serves"><button value="2" aria-checked="true">2</button><button value="4">4</button><button value="6">6</button></div></header>
+      <ul class="ingredients">
+        <li><label class="sk-check"><input type="checkbox"><span>Olive oil</span></label><span class="qty" data-qty="2" data-unit="tbsp">2 tbsp</span></li>
+        <li><label class="sk-check"><input type="checkbox"><span>Onion, sliced</span></label><span class="qty" data-qty="1">1</span></li>
+        <li><label class="sk-check"><input type="checkbox"><span>Red pepper, sliced</span></label><span class="qty" data-qty="1">1</span></li>
+        <li><label class="sk-check"><input type="checkbox"><span>Garlic, sliced</span></label><span class="qty" data-qty="3" data-unit="cloves">3 cloves</span></li>
+        <li><label class="sk-check"><input type="checkbox"><span>Ground cumin and sweet paprika</span></label><span class="qty" data-qty="1" data-unit="tsp each">1 tsp each</span></li>
+        <li><label class="sk-check"><input type="checkbox"><span>Chopped tomatoes</span></label><span class="qty" data-qty="400" data-unit="g">400 g</span></li>
+        <li><label class="sk-check"><input type="checkbox"><span>Eggs</span></label><span class="qty" data-qty="4">4</span></li>
+        <li><label class="sk-check"><input type="checkbox"><span>Feta, crumbled</span></label><span class="qty" data-qty="50" data-unit="g">50 g</span></li>
+        <li><label class="sk-check"><input type="checkbox"><span>Parsley, and bread to serve</span></label><span class="qty">a handful</span></li>
+      </ul>
+      <p class="sk-caption">Tick things off as you get them out.</p>
+    </div>
+    <div class="sk-stack" style="--gap:22px">
+      <h2 class="sk-h2">Method</h2>
+      <ol class="sk-steps">
+        <li><h4>Soften the onion and pepper</h4><p>Oil in the pan over a medium heat. Cook them with a pinch of salt until soft and sweet, about 8 minutes. Don't rush this; it's where the flavour comes from.</p></li>
+        <li><h4>Add the garlic and spices</h4><p>One minute, stirring, until it smells toasty.</p></li>
+        <li><h4>Simmer the tomatoes</h4><p>Tip them in, rinse the can with a splash of water, and simmer for 10 minutes until thick enough that a spoon leaves a trail. Taste for salt.</p></li>
+        <li><h4>Set the eggs</h4><p>Make a well for each egg and crack it in. Lid on, heat low, 6 to 8 minutes, until the whites are set and the yolks still move.</p></li>
+        <li><h4>Finish</h4><p>Feta and parsley over the top. Bring the pan to the table with the bread.</p></li>
+      </ol>
+      <aside class="sk-callout"><span class="sk-spot" data-sk-draw="clock"></span><h4>If the whites won't set</h4><p>Spoon some of the bubbling tomato over the whites, lid back on, one more minute. Turning the heat up only hardens the yolks.</p></aside>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  var seg = document.getElementById('serves');
+  seg.addEventListener('sk:change', function (e) {
+    var k = +e.detail.value / 2;
+    Sketchbook.set(document.getElementById('serves-n'), e.detail.value);
+    document.querySelectorAll('.qty[data-qty]').forEach(function (q) {
+      var v = +q.dataset.qty * k, u = q.dataset.unit;
+      var txt = (v >= 100 ? Math.round(v) : Math.round(v * 2) / 2) + (u ? ' ' + u : '');
+      Sketchbook.set(q, txt);
+    });
+  });
+})();
+</script>
+</body>
+</html>

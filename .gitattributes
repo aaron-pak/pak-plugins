@@ -1,4 +1,2 @@
 # Built bundles; GitHub collapses them in diffs.
 plugins/*/mcp/*.mjs linguist-generated=true
-# Claude Code's highlight.js runtime, copied verbatim.
-plugins/artifact-design/skills/artifact-design/scripts/hljs-runtime.html linguist-generated=true

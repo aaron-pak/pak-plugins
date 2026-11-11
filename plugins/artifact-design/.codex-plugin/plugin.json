@@ -1,20 +1,21 @@
 {
   "name": "artifact-design",
-  "description": "Claude Code's artifact-design, artifact-diagramming and dataviz skills for HTML artifacts, with Artifact and ArtifactCheck MCP tools that publish and preview them on this machine. From Anthropic's Claude Code.",
+  "description": "HTML artifacts in the Sketchbook design system: Artifact and ArtifactCheck MCP tools that publish pages (reports, explainers, plans, dashboards, tools, decks) on this machine and check them, with skills for pages, diagrams and charts. Built on Anthropic's Claude Code artifact skills.",
   "author": {
-    "name": "Anthropic"
+    "name": "Aaron Pak"
   },
   "skills": ["./skills/", "./codex-skills/"],
   "mcpServers": {
     "artifact": {
       "command": "node",
-      "args": ["mcp/server.mjs", "--client=codex"],
+      "args": ["mcp/server.mjs"],
       "cwd": ".",
       "env_vars": [
         "ARTIFACTS_DIR",
         "ARTIFACT_OPEN",
         "ARTIFACT_PREVIEW",
         "ARTIFACT_PREVIEW_CA",
+        "ARTIFACT_DESIGN_SYSTEM",
         "PLAYWRIGHT_BROWSERS_PATH",
         "XDG_CACHE_HOME",
         "DISPLAY",

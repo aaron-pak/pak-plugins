@@ -1,0 +1,51 @@
+<!-- @dsCard group="Pages" height=2000 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}</style></head>
+<body>
+<main class="sk-page sk-enter">
+  <div class="sk-hero" data-layout="mark">
+    <div>
+      <div class="sk-label">Runbook · the web app</div>
+      <h1 class="sk-title">The build is red. Start here.</h1>
+      <p class="sk-lede">Two questions get most red builds to the right fix in under ten minutes. Answer them in order and do what the box says.</p>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="gear" data-sk-boil aria-label="A cog"></div>
+  </div>
+
+  <section class="sk-section">
+    <header><div class="sk-label">Find the fix</div><h2 class="sk-h2">Where did it break, and what changed?</h2></header>
+    <div class="sk-tree" aria-label="What to do when the build fails" data-sk-tree='{"q":"Did it fail on main, or only on your branch?","kids":[
+      {"if":"Only my branch","q":"Does it pass on your machine?","kids":[
+        {"if":"Yes","a":"Re-run without the cache","sub":"Usually a stale package in CI."},
+        {"if":"No","a":"It is your change","sub":"Fix the test locally before you ask anyone."}]},
+      {"if":"Main too","q":"Did the last merge touch the failing file?","kids":[
+        {"if":"Yes","a":"Revert that merge","sub":"Fix forward later, in a new pull request.","key":true},
+        {"if":"No","a":"Call whoever is on call","sub":"Something outside the repo changed."}]}]}'></div>
+    <p class="sk-caption">In clay: the way most red builds on main go. Last quarter, 31 of 44.</p>
+  </section>
+
+  <section class="sk-section sk-two" data-top>
+    <div class="sk-stack" style="--gap:14px">
+      <header class="sk-stack" style="--gap:6px"><div class="sk-label">Reverting</div><h2 class="sk-h2">Undo the merge, keep the history</h2></header>
+      <p class="sk-measure">Revert on a branch and merge that, so the red build goes green and anyone reading the log later can see what happened and why.</p>
+    </div>
+    <ol class="sk-steps">
+      <li><h4>Find the merge</h4><pre class="sk-code" data-lang="sh" data-sk-nonum><code>git log --merges -n 5 --oneline</code></pre></li>
+      <li><h4>Revert it on a branch</h4><pre class="sk-code" data-lang="sh" data-sk-nonum><code>git switch -c revert-red main
+git revert -m 1 &lt;merge sha&gt;</code></pre></li>
+      <li><h4>Open the pull request</h4><p>Title it "Revert" and the original title. Link the red build in the description.</p></li>
+    </ol>
+  </section>
+
+  <section class="sk-section" data-mode="rail">
+    <header><div class="sk-label">Never</div><h2 class="sk-h2">Three things that make it worse</h2></header>
+    <div class="sk-stack" style="--gap:14px">
+      <aside class="sk-callout"><span class="sk-spot" data-sk-draw="cross"></span><h4>Skipping the failing test</h4><p>It goes green and the bug ships. Fix it or revert.</p></aside>
+      <aside class="sk-callout"><span class="sk-spot" data-sk-draw="lock"></span><h4>Pushing straight to main</h4><p>Even a one-line fix goes through a pull request, so CI runs on it first.</p></aside>
+      <aside class="sk-callout"><span class="sk-spot" data-sk-draw="clock"></span><h4>Waiting it out</h4><p>A red main blocks everyone. If you can't fix it in 30 minutes, revert.</p></aside>
+    </div>
+  </section>
+</main>
+</body>
+</html>

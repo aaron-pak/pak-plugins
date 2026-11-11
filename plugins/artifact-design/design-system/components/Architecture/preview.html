@@ -1,0 +1,77 @@
+<!-- @dsCard group="Pages" height=2310 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}
+.sk-table td:first-child{font-weight:600;font-family:var(--font-display)}
+.order time{font:500 13px var(--font-mono);color:var(--muted);display:block;margin-bottom:2px}
+</style></head>
+<body>
+<main class="sk-page sk-enter">
+  <div class="sk-hero" data-layout="mark">
+    <div>
+      <div class="sk-label">Corner Coffee · for new developers</div>
+      <h1 class="sk-title">How an order gets from a phone to the counter</h1>
+      <p class="sk-lede">Six parts, and only one of them is ours to keep running. Read this before your first change; it takes about five minutes.</p>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="cup" data-sk-boil aria-label="A cup"></div>
+  </div>
+
+  <section class="sk-section" data-mode="band" data-tone="oat">
+    <header><div class="sk-label">The map</div><h2 class="sk-h2">Everything goes through the orders database</h2></header>
+    <div class="sk-map" aria-label="How the six parts of the order system connect" data-sk-map='{"nodes":[
+      {"id":"site","a":"Order site","sub":"On the customer’s phone","draw":"phone","at":[1,0]},
+      {"id":"pay","a":"Card payments","sub":"A payment company","draw":"coin","at":[0,0]},
+      {"id":"db","a":"Orders database","sub":"The part we run","draw":"database","at":[1,1],"key":true},
+      {"id":"kitchen","a":"Kitchen screen","sub":"A tablet by the till","draw":"computer","at":[2,1]},
+      {"id":"text","a":"Text messages","sub":"A texting service","draw":"chat","at":[2,0]},
+      {"id":"report","a":"Nightly report","sub":"Emailed to Sam","draw":"chart","at":[0,1]}],
+      "links":[
+      {"from":"site","to":"pay","if":"asks for the money"},
+      {"from":"pay","to":"site","if":"says yes or no"},
+      {"from":"site","to":"db","if":"saves the paid order"},
+      {"from":"db","to":"kitchen","if":"shows each new order"},
+      {"from":"kitchen","to":"db","if":"marks it made"},
+      {"from":"kitchen","to":"text","if":"asks for a “ready” text"},
+      {"from":"db","to":"report","if":"copies the day’s orders at 11 pm"}]}'></div>
+    <p class="sk-caption">In clay: the orders database, the only part on our own server. The other five are a phone, a tablet and three services we pay for.</p>
+  </section>
+
+  <section class="sk-section">
+    <header><div class="sk-label">Each part</div><h2 class="sk-h2">What happens when one of them stops</h2></header>
+    <div class="sk-table-wrap"><table class="sk-table">
+      <thead><tr><th>Part</th><th data-phone="hide">What it does</th><th>If it stops</th></tr></thead>
+      <tbody>
+        <tr><td>Order site</td><td data-phone="hide">Takes the order and sends the card to be charged</td><td>People order at the counter instead</td></tr>
+        <tr><td>Card payments</td><td data-phone="hide">Charges the card and says whether it worked</td><td>Nothing can be paid for, so nothing is saved</td></tr>
+        <tr><td>Orders database</td><td data-phone="hide">Keeps every paid order and whether it’s been made</td><td>The site says “try again” and the kitchen sees nothing new. Call whoever is on call.</td></tr>
+        <tr><td>Kitchen screen</td><td data-phone="hide">Shows new orders, oldest first</td><td>Orders still save; print them from the back office</td></tr>
+        <tr><td>Text messages</td><td data-phone="hide">Texts the customer when the drink is ready</td><td>Drinks still get made; nobody gets a text</td></tr>
+        <tr><td>Nightly report</td><td data-phone="hide">Adds up the day for Sam</td><td>The next night’s report covers both days</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="sk-section sk-two" data-top>
+    <div class="sk-stack" style="--gap:14px">
+      <header class="sk-stack" style="--gap:6px"><div class="sk-label">Follow one order</div><h2 class="sk-h2">An oat latte, start to finish</h2></header>
+      <p class="sk-measure">Tuesday 10 November, 8:02 am, a busy morning. Under a minute from tapping Pay to the order on the screen, most of it waiting for the bank.</p>
+    </div>
+    <ol class="sk-steps order">
+      <li><time>8:02:10</time><h4>Pay is tapped</h4><p>The order site asks the payment company to charge £3.40.</p></li>
+      <li><time>8:02:14</time><h4>The bank says yes</h4><p>Four seconds is normal. Over ten, the site says so and keeps waiting.</p></li>
+      <li><time>8:02:15</time><h4>The order is saved</h4><p>Only paid orders reach the database, so the kitchen never makes an unpaid drink.</p></li>
+      <li><time>8:02:16</time><h4>It’s on the kitchen screen</h4><p>Fourth in the queue, behind three orders from the counter.</p></li>
+      <li><time>8:05:40</time><h4>Marked made, text sent</h4><p>The barista taps it done and the customer gets “Your oat latte is ready”.</p></li>
+    </ol>
+  </section>
+
+  <section class="sk-section sk-two" data-top>
+    <div class="sk-stack" style="--gap:10px"><div class="sk-label">Before your first change</div><h2 class="sk-h2">Two rules</h2></div>
+    <div class="sk-stack" style="--gap:14px">
+      <aside class="sk-callout" data-tone="warn"><span class="sk-spot" data-sk-draw="coin"></span><h4>Never test with a real card</h4><p>The payment company has a test mode with pretend cards. Your machine uses it unless you change <code>PAYMENTS_MODE</code>.</p></aside>
+      <aside class="sk-callout"><span class="sk-spot" data-sk-draw="clock"></span><h4>Ship after 2 pm</h4><p>Mornings are the rush. A change that goes out after lunch has hours to settle before the next one.</p></aside>
+    </div>
+  </section>
+</main>
+</body>
+</html>

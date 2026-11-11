@@ -1,0 +1,66 @@
+<!-- @dsCard group="Pages" height=2300 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}</style></head>
+<body>
+<main class="sk-page sk-enter" data-width="wide">
+  <div class="sk-hero" data-size="s">
+    <div>
+      <div class="sk-label">SQL walkthrough · homework 3, query 4</div>
+      <h1 class="sk-title">How the top-rated movies query works, line by line</h1>
+      <p class="sk-lede">It joins two tables, throws out movies too few people rated, and sorts what's left. <span data-screen-only>Point at a note to light up its line.</span></p>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="code" data-sk-boil aria-label="A code window"></div>
+  </div>
+
+  <div class="sk-doc">
+    <nav class="sk-toc" aria-label="On this page"><div class="sk-label">On this page</div><div><a href="#q">The question</a><a href="#query">The query</a><a href="#result">What it returns</a><a href="#mistake">A common mistake</a></div></nav>
+    <div class="sk-stack" style="--gap:56px">
+      <section class="sk-section" data-plain id="q">
+        <header><div class="sk-label">The question</div><h2 class="sk-h2">Which movies do people rate highest, if enough of them voted?</h2></header>
+        <div class="sk-prose"><p>The ratings live in one table and the titles in another. A movie with three perfect votes shouldn't beat one with forty thousand very good ones, so the query needs a floor on the number of votes.</p></div>
+      </section>
+      <section class="sk-section" id="query">
+        <header><div class="sk-label">The query</div><h2 class="sk-h2">Four steps in eleven lines</h2></header>
+        <pre class="sk-code" data-lang="sql" data-title="top_movies.sql" data-sk-lines="7" data-sk-notes='{"2":"Pick the columns to show. <code>ROUND</code> keeps one decimal.","5":"Match each rating to its title by the shared id, <code>tconst</code>.","7":"The floor: only movies with at least 25,000 votes count.","10":"Highest rating first; ties go to the movie more people voted on."}'><code>-- Top-rated movies with enough votes to trust
+SELECT b.primary_title, b.start_year,
+       ROUND(r.average_rating, 1) AS rating,
+       r.num_votes
+FROM title_basics AS b
+JOIN title_ratings AS r ON r.tconst = b.tconst
+WHERE b.title_type = 'movie' AND r.num_votes >= 25000
+ORDER BY
+  rating DESC,
+  r.num_votes DESC
+LIMIT 5;</code></pre>
+      </section>
+      <section class="sk-section" id="result">
+        <header><div class="sk-label">What it returns</div><h2 class="sk-h2">Five movies, all with well over 25,000 votes</h2></header>
+        <div class="sk-table-wrap"><table class="sk-table" data-hover>
+          <thead><tr><th>Title</th><th class="sk-n" data-phone="hide">Year</th><th class="sk-n">Rating</th><th class="sk-n">Votes</th></tr></thead>
+          <tbody>
+            <tr data-sk-key><td>The Shawshank Redemption</td><td class="sk-n">1994</td><td class="sk-n">9.3</td><td class="sk-n">2,941,000</td></tr>
+            <tr><td>The Godfather</td><td class="sk-n">1972</td><td class="sk-n">9.2</td><td class="sk-n">2,048,000</td></tr>
+            <tr><td>The Dark Knight</td><td class="sk-n">2008</td><td class="sk-n">9.0</td><td class="sk-n">2,921,000</td></tr>
+            <tr><td>The Godfather Part II</td><td class="sk-n">1974</td><td class="sk-n">9.0</td><td class="sk-n">1,383,000</td></tr>
+            <tr><td>12 Angry Men</td><td class="sk-n">1957</td><td class="sk-n">9.0</td><td class="sk-n">887,000</td></tr>
+          </tbody>
+          <caption>From the IMDb datasets used in class. Vote counts rounded.</caption>
+        </table></div>
+      </section>
+      <section class="sk-section" id="mistake">
+        <header><div class="sk-label">A common mistake</div><h2 class="sk-h2">Filtering after you sort does nothing</h2><p>The first version on the class forum put the vote floor in the wrong place. The fix moves it into <code>WHERE</code>.</p></header>
+        <pre class="sk-code" data-lang="diff" data-title="the fix"><code> FROM title_basics AS b
+ JOIN title_ratings AS r ON r.tconst = b.tconst
+-WHERE b.title_type = 'movie'
++WHERE b.title_type = 'movie' AND r.num_votes >= 25000
+ ORDER BY rating DESC
+-LIMIT 5;  -- then drop small ones by hand
++LIMIT 5;</code></pre>
+        <aside class="sk-callout"><span class="sk-spot" data-sk-draw="bulb"></span><h4>Rule of thumb</h4><p>Anything that decides <em>which rows count</em> goes in <code>WHERE</code>. <code>ORDER BY</code> and <code>LIMIT</code> only decide which of the counted rows you see.</p></aside>
+      </section>
+    </div>
+  </div>
+</main>
+</body>
+</html>

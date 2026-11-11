@@ -1,0 +1,89 @@
+<!-- @dsCard group="Pages" height=2000 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}
+.invite{position:relative;display:grid;justify-items:center;text-align:center;gap:26px;background:var(--card);border-radius:22px;padding:56px 48px 52px;box-shadow:0 1px 0 var(--line),0 24px 60px -32px rgba(20,20,19,.28);outline:1px solid var(--line);outline-offset:-12px}
+.invite .sk-hero-art{width:min(330px,80%)}
+.invite .sk-title{max-width:14ch;margin-inline:auto}
+.invite-for{font:400 19px/1.4 var(--font-text);color:var(--text)}
+.invite-date{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:22px;width:min(420px,100%)}
+.invite-date::before,.invite-date::after{content:"";height:1.5px;background:var(--ink)}
+.invite-date div{display:grid;justify-items:center;gap:2px}
+.invite-date b{font:600 104px/.9 var(--font-display);letter-spacing:-.04em;color:var(--ink);font-variant-numeric:lining-nums}
+.invite-date span{font:500 12.5px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.invite-date span:last-child{color:var(--accent)}
+.invite-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 34px;width:min(520px,100%);text-align:center}
+.invite-facts div{display:grid;gap:4px;align-content:start}
+.invite-facts b{font:600 18px/1.3 var(--font-display);color:var(--ink)}
+.invite-facts span{font-size:15px;line-height:1.5;color:var(--text)}
+.invite .sk-sticky{position:absolute;right:-34px;bottom:-40px;max-width:230px;text-align:left}
+.invite .sk-sticky>p{font-size:17px}
+.reply{display:grid;gap:22px;justify-items:center;text-align:center}
+.reply form{display:grid;gap:20px;width:min(460px,100%);text-align:left}
+.reply .sk-seg{width:100%}
+.reply .sk-seg button{flex:1}
+.reply-done{display:grid;justify-items:center;gap:14px;width:min(460px,100%);padding:30px 28px 28px;background:var(--card);border-radius:18px;box-shadow:inset 0 0 0 1px var(--line);text-align:center;animation:sk-rise .5s var(--ease-settle) both}
+
+.reply-done .sk-h3{max-width:22ch;text-wrap:balance}
+.reply-done .sk-row{justify-content:center}
+.reply-done>button{justify-self:center}
+#rsvp[hidden]{display:none}
+@media (max-width:640px){.invite-date{width:min(300px,100%)}.reply .sk-seg button{padding-inline:8px}.invite{padding:40px 22px 36px;outline-offset:-8px}.invite-date b{font-size:84px}.invite-facts{grid-template-columns:1fr}.invite .sk-sticky{position:relative;right:auto;bottom:auto;margin-top:6px}}
+</style></head>
+<body>
+<main class="sk-page sk-enter" data-width="narrow">
+  <article class="invite" aria-label="Invitation">
+    <div class="sk-hero-art" data-sk-draw="cake glass" data-sk-scene="still" data-sk-boil aria-label="A birthday cake with candles and a glass of wine"></div>
+    <div class="sk-stack" style="--gap:12px;justify-items:center">
+      <div class="sk-label">You're invited</div>
+      <p class="invite-for">to supper in the garden for</p>
+      <h1 class="sk-title" data-size="xl">Mira's fortieth</h1>
+    </div>
+    <div class="invite-date"><div><span>Saturday</span><b>13</b><span>June</span></div></div>
+    <div class="invite-facts">
+      <div><div class="sk-label">From</div><b>7 pm</b><span>Until the candles run out.</span></div>
+      <div><div class="sk-label">At</div><b>14 Elm Road</b><span>Round the side gate, straight into the garden.</span></div>
+    </div>
+    <p class="sk-small" style="max-width:40ch">A long table, food from the grill, and nobody making a speech longer than a minute. Bring just yourselves, and a bottle if you like.</p>
+    <aside class="sk-sticky"><p>The cake is a surprise. Please don't mention it to Mira.</p></aside>
+  </article>
+
+  <section class="sk-section reply" data-plain>
+    <div class="sk-stack" style="--gap:8px;justify-items:center">
+      <div class="sk-label">Reply by Friday 5 June</div>
+      <h2 class="sk-h2">Will you come?</h2>
+      <p class="sk-small" style="max-width:42ch">So we know how many chairs to borrow. Children are very welcome; there's a tent for them.</p>
+    </div>
+    <form id="rsvp" onsubmit="return false">
+      <div class="sk-seg" id="come" aria-label="Can you come?"><button value="yes" aria-checked="true">We'll be there</button><button value="maybe">Not sure yet</button><button value="no">Can't make it</button></div>
+      <div class="sk-field"><label for="who">Your names</label><input class="sk-input" id="who" placeholder="Sam and Alex"></div>
+      <div class="sk-field" id="dietField"><label for="diet">Anything you don't eat?</label><input class="sk-input" id="diet" placeholder="We’ll cook around it"></div>
+      <button class="sk-btn" type="button" id="send" data-sk-arrow data-size="l" style="justify-self:center">Send our reply</button>
+    </form>
+    <div class="reply-done" id="done" role="status" hidden></div>
+  </section>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  // a calendar file for the evening, so a yes or a maybe can go straight into a calendar
+  var ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Sketchbook//Invitation//EN', 'BEGIN:VEVENT', 'UID:miras-fortieth-20260613', 'DTSTAMP:20260601T120000Z',
+    'DTSTART:20260613T190000', 'DTEND:20260613T230000', "SUMMARY:Mira's fortieth", 'LOCATION:14 Elm Road', 'DESCRIPTION:Supper in the garden. Round the side gate.', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  var cal = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+  function answer() { return document.querySelector('#come [aria-checked="true"]').value; }
+  // nobody needs to say what they eat if they can't come
+  $('come').addEventListener('sk:change', function () { $('dietField').hidden = answer() === 'no'; });
+  function esc(t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  $('send').addEventListener('click', function () {
+    var v = answer(), who = $('who').value.trim(), diet = $('diet').value.trim(), h = '';
+    if (v === 'no') h = '<span class="sk-spot" data-size="l" data-sk-draw="cake"></span><h3 class="sk-h3">Thanks for letting us know' + (who ? ', ' + esc(who) : '') + '. We’ll miss you.</h3>';
+    else if (v === 'maybe') h = '<span class="sk-spot" data-size="l" data-sk-draw="clock"></span><h3 class="sk-h3">Got it' + (who ? ', ' + esc(who) : '') + '. We’ll check back nearer the day.</h3><p class="sk-small">Put it in your calendar for now, just in case.</p><div class="sk-row"><a class="sk-btn" data-sk-ghost href="' + cal + '" download="miras-fortieth.ics">Add to your calendar</a></div>';
+    else h = '<span class="sk-spot" data-size="l" data-sk-draw="check"></span><h3 class="sk-h3">See you on Saturday 13 June' + (who ? ', ' + esc(who) : '') + '.</h3>' + (diet ? '<p class="sk-small">We’ve noted “' + esc(diet.replace(/[.\s]+$/, '')) + '” for the cooks.</p>' : '') + '<div class="sk-row"><a class="sk-btn" href="' + cal + '" download="miras-fortieth.ics">Add to your calendar</a></div>';
+    h += '<button class="sk-btn" type="button" data-sk-quiet id="change">Change our reply</button>';
+    $('done').innerHTML = h; $('rsvp').hidden = true; $('done').hidden = false; Sketchbook.mount($('done'));
+    $('change').addEventListener('click', function () { $('done').hidden = true; $('rsvp').hidden = false; $('send').focus(); });
+  });
+})();
+</script>
+</body>
+</html>

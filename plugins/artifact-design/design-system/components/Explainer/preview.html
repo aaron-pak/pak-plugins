@@ -1,0 +1,19 @@
+<!-- @dsCard group="Pages" height=1740 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}</style></head>
+<body>
+<main class="sk-page sk-enter" style="padding-block:40px 56px">
+  <div class="sk-hero"><div><div class="sk-label">Evals · part 2</div><h1 class="sk-title">Read the transcript before you <span data-sk-under>trust the score</span></h1><p class="sk-lede">A grader turns an agent's run into a number. The number is only as good as what the grader read, so read some of it yourself.</p></div><div class="sk-hero-art" data-sk-draw="board" data-sk-boil aria-label="A clipboard of checked rows"></div></div>
+  <section class="sk-section" data-mode="band" data-tone="oat"><header><div class="sk-label">The loop</div><h2 class="sk-h2">How a grade gets made</h2></header><div class="sk-flow" data-sk-flow="[[&quot;doc&quot;, &quot;Task&quot;, &quot;given to&quot;], [&quot;network&quot;, &quot;Agent&quot;, &quot;leaves a&quot;], [&quot;scroll&quot;, &quot;Transcript&quot;, &quot;read by a&quot;], [&quot;lens&quot;, &quot;Grader&quot;, &quot;gives a&quot;], [&quot;gauge&quot;, &quot;Score&quot;]]" data-sk-loop="What you learn changes the task or the grader"><span class="sk-note" data-sk-note-at="3">The part people skip</span></div></section>
+  <section class="sk-section sk-two"><div class="sk-stack" style="--gap:16px"><div class="sk-label">Where to start</div><div class="sk-row" style="--gap:44px;align-items:center"><div class="sk-num" id="start-n"><span data-sk-ring>20–50</span></div><span class="sk-note" data-sk-target="#start-n" style="max-width:9em">Not hundreds. Start here.</span></div></div>
+  <div class="sk-stack" style="--gap:10px;align-self:end"><p class="sk-lede" style="max-width:30ch">Simple tasks drawn from real failures are a great start.</p><div class="sk-source">Anthropic, “Demystifying evals for AI agents”</div></div></section>
+  <section class="sk-section"><header><div class="sk-label">Reading a transcript</div><h2 class="sk-h2">Three things to look for</h2></header><div class="sk-grid">
+   <div class="sk-stack" style="--gap:8px"><div class="sk-art" data-sk-shape="panel" data-tone="oat" data-sk-draw="network" aria-hidden="true"></div><h3>What the agent tried</h3><p class="sk-small">Which tools it called, in what order, and where it went in circles.</p></div>
+   <div class="sk-stack" style="--gap:8px"><div class="sk-art" data-sk-shape="panel" data-tone="sage" data-sk-draw="lens" aria-hidden="true"></div><h3>What the grader saw</h3><p class="sk-small">Whether it read the tool calls or only the final answer.</p></div>
+   <div class="sk-stack" style="--gap:8px"><div class="sk-art" data-sk-shape="panel" data-tone="oat" data-sk-draw="cards" aria-hidden="true"></div><h3>Where the task was unclear</h3><p class="sk-small">Two good answers scored differently mean the task needs work.</p></div></div></section>
+  <section class="sk-section"><figure class="sk-quote" style="max-width:820px"><blockquote>We do not take eval scores at face value until someone digs into the details of the eval and reads some transcripts.</blockquote><figcaption>Anthropic, “Demystifying evals for AI agents”</figcaption></figure></section>
+  <section class="sk-section sk-two" data-mode="band" data-tone="sage"><div class="sk-stack" style="--gap:14px"><div class="sk-label">Before you re-run</div><h2 class="sk-statement">Fix the graders <em>first.</em></h2><p class="sk-lede" style="max-width:32ch">Twenty transcripts read by a person, with notes on each grader's mistakes.</p></div><div class="sk-sticky"><p>Don't start a new round until a person has graded the same pages the judges did.</p></div></section>
+</main>
+</body>
+</html>

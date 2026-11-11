@@ -10,7 +10,7 @@
     {
       "name": "artifact-design",
       "source": "plugins/artifact-design",
-      "description": "Claude Code's artifact-design, artifact-diagramming and dataviz skills for HTML artifacts, with Artifact and ArtifactCheck MCP tools that publish and preview them on this machine. From Anthropic's Claude Code."
+      "description": "HTML artifacts in the Sketchbook design system: Artifact and ArtifactCheck MCP tools that publish pages (reports, explainers, plans, dashboards, tools, decks) on this machine and check them, with skills for pages, diagrams and charts. Built on Anthropic's Claude Code artifact skills."
     },
     {
       "name": "create-skill",

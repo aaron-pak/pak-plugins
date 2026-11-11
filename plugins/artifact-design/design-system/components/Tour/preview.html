@@ -1,0 +1,99 @@
+<!-- @dsCard group="Pages" height=2250 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}
+/* the band on the left, the words and controls beside it */
+#demo{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);grid-template-rows:1fr auto auto 1fr;column-gap:var(--space-40,40px);row-gap:16px}
+#demo>.sk-player-stage{grid-column:1;grid-row:1 / -1;align-self:center}
+#demo>.sk-player-bar{grid-column:2;grid-row:2}
+#demo>.sk-player-steps{grid-column:2;grid-row:3;font-size:17px}
+@media (max-width:860px){#demo{grid-template-columns:1fr;grid-template-rows:none}#demo>*{grid-column:1 !important;grid-row:auto !important}}
+.term{font:400 13.5px/1.75 var(--font-mono);padding:20px 22px 18px;display:grid;grid-template-columns:minmax(0,1fr);gap:2px;min-height:260px;align-content:end}
+.term p{margin:0}.term .you{color:var(--ink)}.term .log{color:var(--muted)}
+.band{display:grid;grid-template-columns:minmax(0,1fr);margin-top:14px;border:1px solid var(--line-strong);border-radius:10px;padding:9px 14px;background:var(--panel);color:var(--ink);transition:background-color .3s var(--ease-out),border-color .3s,color .3s}
+.band>span{grid-area:1/1;display:flex;align-items:center;gap:10px;font:500 14px/1.3 var(--font-display);min-width:0}
+.band>span>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.band b{font:500 13px var(--font-mono)}
+.band .dot{flex:none;width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.5}
+.band .sk-spot{width:20px;height:20px}
+.sk-player-stage[data-step="4"] .band{background:var(--clay);border-color:var(--clay);color:#141413}
+@media (prefers-reduced-motion:no-preference){.sk-player-stage[data-step="2"] .band .dot{animation:think 1.6s ease-in-out infinite}}
+@keyframes think{50%{opacity:1;transform:scale(1.25)}}
+.prompt{margin-top:8px;border:1px solid var(--line);border-radius:10px;padding:9px 14px;color:var(--muted)}
+.closing{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:var(--space-40,40px);align-items:start}
+@media (max-width:760px){.closing{grid-template-columns:1fr;gap:14px}}
+</style></head>
+<body>
+<main class="sk-page sk-enter">
+  <div class="sk-hero" data-layout="center">
+    <div>
+      <div class="sk-label">A plugin for Claude Code</div>
+      <h1 class="sk-title" data-size="xl">A small band that shows <span data-sk-under>what Claude is doing</span></h1>
+      <p class="sk-lede">session-band sits above the prompt and says what Claude is doing as it reads, thinks, edits and finishes, so you can tell at a glance without reading the log.</p>
+      <div class="sk-row" style="justify-content:center"><a class="sk-btn" data-sk-arrow data-size="l" href="#setup">Install it</a><button class="sk-btn" data-sk-ghost data-size="l" id="watch">See it move</button></div>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="laptop bulb" data-sk-boil aria-label="A laptop and a light bulb"></div>
+  </div>
+
+  <section class="sk-section" id="see">
+    <header><div class="sk-label">What it shows</div><h2 class="sk-h2">One line that changes with the work</h2></header>
+    <div class="sk-player" id="demo" aria-label="The band through one small task" data-sk-every="2600">
+        <div class="sk-player-stage">
+          <div class="sk-frame" data-sk-chrome="~/projects/shop">
+            <div class="term">
+              <p class="you">&gt; Make the date picker start weeks on Sunday</p>
+              <p class="log" data-sk-at="1-">Read src/picker/day.ts</p>
+              <p class="log" data-sk-at="3-">Edit src/picker/day.ts, 3 lines</p>
+              <p class="log" data-sk-at="4">Ran bun test picker: 14 passed</p>
+              <div class="band" role="status">
+                <span data-sk-at="1"><i class="dot"></i><span>Reading <b>src/picker/day.ts</b></span></span>
+                <span data-sk-at="2"><i class="dot"></i>Thinking it over</span>
+                <span data-sk-at="3"><i class="dot"></i><span>Editing <b>src/picker/day.ts</b></span></span>
+                <span data-sk-at="4"><span class="sk-spot" data-sk-draw="check"></span><span>Done in 1m 12s <b>· 3 tools · 1 file changed</b></span></span>
+              </div>
+              <div class="prompt">&gt;</div>
+            </div>
+          </div>
+        </div>
+        <ol class="sk-player-steps">
+          <li><b>Reading.</b> The band names each file as Claude opens it, so you can see where it is looking.</li>
+          <li><b>Thinking it over.</b> A slow pulse between steps, while Claude works out the change. Nothing for you to do yet.</li>
+          <li><b>Editing.</b> Each tool gets a few plain words: reading, editing, searching, running the tests.</li>
+          <li><b>Done.</b> The band turns clay when the turn lands, with how long it took and what changed, so a glance from across the room is enough.</li>
+        </ol>
+    </div>
+  </section>
+
+  <section class="sk-section" id="setup">
+    <header><div class="sk-label">Set up</div><h2 class="sk-h2">Three steps, about a minute</h2></header>
+    <ol class="sk-steps">
+      <li><h4>Add the marketplace</h4><p>Once per machine.</p><pre class="sk-code" data-lang="sh" data-sk-nonum><code>claude plugin marketplace add aaron-pak/pak-plugins</code></pre></li>
+      <li><h4>Install the plugin</h4><p>It turns on in your next session.</p><pre class="sk-code" data-lang="sh" data-sk-nonum><code>claude plugin install session-band@agent-plugins</code></pre></li>
+      <li><h4>Pick a look</h4><p>Tide, a little beach, is the default. Hearth is calmer. Change it any time.</p><pre class="sk-code" data-lang="sh" data-sk-nonum><code>/band hearth</code></pre></li>
+    </ol>
+  </section>
+
+  <section class="sk-section sk-two" data-top>
+    <div class="sk-stack" style="--gap:10px"><div class="sk-label">Questions</div><h2 class="sk-h2">Before you install</h2></div>
+    <div>
+      <details class="sk-details" open><summary>Does it slow Claude down?</summary><div><p>No. It reads the same events the terminal already gets and draws one line. It adds no tokens to the conversation.</p></div></details>
+      <details class="sk-details"><summary>Does it work in the desktop app?</summary><div><p>Yes. The desktop app shows the same band above the prompt, with the pictures drawn in its own style.</p></div></details>
+      <details class="sk-details"><summary>How do I turn it off?</summary><div><p>Turn it off in <code>/plugin</code>, or uninstall it. To keep it from moving, run <code>/band still</code>.</p></div></details>
+    </div>
+  </section>
+
+  <section class="sk-section closing">
+    <div class="sk-stack" style="--gap:10px"><div class="sk-label">Feedback</div><h2 class="sk-h2">Found a rough edge?</h2></div>
+    <div class="sk-stack" style="--gap:18px"><p>Open an issue with a screenshot of the band and what Claude was doing. Small reports are the most useful ones.</p><div><a class="sk-btn" data-sk-ghost data-sk-arrow href="https://github.com/aaron-pak/pak-plugins/issues/new">Open an issue</a></div></div>
+  </section>
+</main>
+<script>
+// "See it move" takes you to the band and plays it from the start
+document.getElementById('watch').addEventListener('click', function () {
+  var demo = document.getElementById('demo');
+  document.getElementById('see').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  setTimeout(function () { var play = demo.querySelector('.sk-player-play'); if (play && !demo.hasAttribute('data-playing')) play.click(); demo.focus({ preventScroll: true }); }, 500);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!-- @dsCard group="Pages" height=2050 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}
+.share{display:grid;grid-template-columns:2.6em minmax(0,1fr);align-items:center;gap:10px;font:500 14px var(--font-display);font-variant-numeric:tabular-nums;color:var(--ink)}</style></head>
+<body>
+<header class="sk-bar" data-width="wide"><div class="sk-bar-in">
+  <a class="sk-brand" href="#"><span class="sk-spot" data-sk-draw="chart"></span>Corner Coffee</a>
+  <nav class="sk-nav"><a href="#sales" aria-current="page">Sales</a><a href="#menu">Menu</a><a href="#items">Items</a></nav>
+  <button class="sk-icon-btn" data-sk-theme aria-label="Switch light and dark"><span class="sk-theme-glyph"></span></button>
+</div></header>
+<main class="sk-page sk-enter" data-width="wide">
+  <div class="sk-row" data-between style="align-items:flex-end;--gap:24px">
+    <div class="sk-stack" style="--gap:12px;max-width:640px">
+      <div class="sk-label">October 1–15, 2026 · sample numbers</div>
+      <h1 class="sk-title">Sales are up 12%, and mornings did most of it</h1>
+    </div>
+  </div>
+
+  <div class="sk-stats">
+    <div class="sk-stat" data-sk-key><div class="sk-label">Revenue</div><div class="sk-stat-v" data-sk-count>$18,240</div><span class="sk-delta" data-dir="up">12% <span>vs Sept 1–15</span></span><div data-sk-chart="spark" data-sk-data="[1080,1150,1210,1320,1290,980,890,1240,1270,1380,1460,1420,1090,960,1450]" aria-label="Daily revenue"></div></div>
+    <div class="sk-stat"><div class="sk-label">Orders</div><div class="sk-stat-v" data-sk-count>2,914</div><span class="sk-delta" data-dir="up">9% <span>vs Sept 1–15</span></span><div data-sk-chart="spark" data-sk-data="[180,186,190,205,199,160,148,194,201,214,222,219,176,158,224]" aria-label="Daily orders"></div></div>
+    <div class="sk-stat"><div class="sk-label">Average ticket</div><div class="sk-stat-v" data-sk-count>$6.26</div><span class="sk-delta" data-dir="up">3% <span>vs Sept 1–15</span></span><div data-sk-chart="spark" data-sk-data="[6.0,6.18,6.37,6.44,6.48,6.12,6.01,6.39,6.32,6.45,6.58,6.48,6.19,6.08,6.47]" aria-label="Average ticket"></div></div>
+    <div class="sk-stat"><div class="sk-label">Food thrown out</div><div class="sk-stat-v" data-sk-count>4.1<small>%</small></div><span class="sk-delta" data-dir="down" data-tone="good">1.3 pts <span>less than Sept</span></span><div data-sk-chart="spark" data-sk-data="[5.6,5.2,5.4,4.9,4.6,4.4,4.8,4.1,3.9,4.0,3.6,3.8,3.5,3.7,3.4]" aria-label="Share of food thrown out"></div></div>
+  </div>
+
+  <section class="sk-section" id="sales">
+    <header><div class="sk-label">Daily sales</div><h2 class="sk-h2">Every weekday beat the same day in September</h2></header>
+    <div data-sk-chart="line" data-sk-h="300" data-sk-from="800" data-sk-format='{"prefix":"$"}' data-sk-note='{"at":"Oct 10","text":"Pumpkin menu starts"}' aria-label="Daily sales, October against September"
+      data-sk-data='{"x":["Oct 1","Oct 2","Oct 3","Oct 4","Oct 5","Oct 6","Oct 7","Oct 8","Oct 9","Oct 10","Oct 11","Oct 12","Oct 13","Oct 14","Oct 15"],"series":[{"name":"October","values":[1080,1150,1210,1320,1290,980,890,1240,1270,1380,1460,1420,1090,960,1450]},{"name":"September","values":[990,1010,1100,1150,1180,900,840,1100,1120,1190,1210,1230,980,880,1250]}]}'></div>
+  </section>
+
+  <section class="sk-section sk-two" data-even data-top id="menu">
+    <div class="sk-stack" style="--gap:22px">
+      <header class="sk-stack" style="--gap:6px"><div class="sk-label">What sells</div><h2 class="sk-h2">Espresso is two of every five dollars</h2></header>
+      <div data-sk-chart="hbars" data-sk-key="none" data-sk-format='{"prefix":"$"}' aria-label="Revenue by category" data-sk-data='[["Espresso drinks",7820],["Drip and cold brew",3960],["Pastry",3410],["Seasonal",1880],["Beans to take home",1170]]'></div>
+    </div>
+    <div class="sk-stack" style="--gap:22px">
+      <header class="sk-stack" style="--gap:6px"><div class="sk-label">When people come</div><h2 class="sk-h2">8 am is the busiest hour by far</h2></header>
+      <div data-sk-chart="bars" data-sk-h="230" data-sk-key="8 am" data-sk-format='{"prefix":"$"}' aria-label="Revenue by hour" data-sk-data='[["7 am",1820],["8 am",3410],["9 am",2960],["10 am",1940],["11 am",1350],["12 pm",1610],["1 pm",1240],["2 pm",1080],["3 pm",1290],["4 pm",890],["5 pm",650]]'></div>
+    </div>
+  </section>
+
+  <section class="sk-section" id="items">
+    <header><div class="sk-label">Top items</div><h2 class="sk-h2">The oat latte passed drip coffee as the most ordered drink</h2></header>
+    <div class="sk-table-wrap"><table class="sk-table" data-hover>
+      <thead><tr><th>Item</th><th class="sk-n">Orders</th><th class="sk-n" data-phone="hide">Revenue</th><th>vs September</th><th style="width:24%" data-phone="hide">Share of revenue</th></tr></thead>
+      <tbody>
+        <tr data-sk-key><td>Oat latte</td><td class="sk-n">612</td><td class="sk-n">$3,366</td><td><span class="sk-delta" data-dir="up">18%</span></td><td><div class="share"><span>18%</span><div class="sk-meter" data-size="thin" data-tone="clay" style="--v:1"></div></div></td></tr>
+        <tr><td>Drip coffee</td><td class="sk-n">540</td><td class="sk-n">$1,620</td><td><span class="sk-delta" data-dir="up">4%</span></td><td><div class="share"><span>9%</span><div class="sk-meter" data-size="thin" style="--v:0.5"></div></div></td></tr>
+        <tr><td>Croissant</td><td class="sk-n">410</td><td class="sk-n">$1,435</td><td><span class="sk-delta" data-dir="down">2%</span></td><td><div class="share"><span>8%</span><div class="sk-meter" data-size="thin" style="--v:0.44"></div></div></td></tr>
+        <tr><td>Pumpkin latte</td><td class="sk-n">288</td><td class="sk-n">$1,728</td><td><span class="sk-pill" data-tone="clay">New</span></td><td><div class="share"><span>10%</span><div class="sk-meter" data-size="thin" style="--v:0.53"></div></div></td></tr>
+        <tr><td>Cold brew</td><td class="sk-n">260</td><td class="sk-n">$1,170</td><td><span class="sk-delta" data-dir="down">9%</span></td><td><div class="share"><span>6%</span><div class="sk-meter" data-size="thin" style="--v:0.36"></div></div></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+  <footer class="sk-foot"><div class="sk-label">About these numbers</div><p>Made-up sample numbers for a small coffee shop, to show the layout. Revenue is before tax and tips. "vs September" compares the same fifteen days.</p></footer>
+</main>
+</body>
+</html>
