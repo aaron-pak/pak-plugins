@@ -27,19 +27,19 @@ Claude Code:
 
 ```sh
 claude plugin marketplace add aaron-pak/pak-plugins
-claude plugin install eli5@agent-plugins --scope user   # or --scope project / local
+claude plugin install eli5@pak-plugins --scope user   # or --scope project / local
 ```
 
-Skills appear as `/<plugin>:<skill>`, for example `/eli5:eli5` or `/artifact-design:artifact-diagramming`. Pull new commits with `claude plugin marketplace update agent-plugins` and then `claude plugin update eli5@agent-plugins`, or turn on auto-update for this marketplace in `/plugin` → Marketplaces.
+Skills appear as `/<plugin>:<skill>`, for example `/eli5:eli5` or `/artifact-design:artifact-diagramming`. Pull new commits with `claude plugin marketplace update pak-plugins` and then `claude plugin update eli5@pak-plugins`, or turn on auto-update for this marketplace in `/plugin` → Marketplaces.
 
 Codex:
 
 ```sh
 codex plugin marketplace add aaron-pak/pak-plugins
-codex plugin add eli5@agent-plugins
+codex plugin add eli5@pak-plugins
 ```
 
-Codex installs plugins for the user and records them in `~/.codex/config.toml`. Pull new commits with `codex plugin marketplace upgrade agent-plugins`, which also refreshes installed plugins. Codex shows a plugin without a version as `1.0.0` or `local` and has no auto-update. Remove one with `codex plugin remove eli5@agent-plugins`.
+Codex installs plugins for the user and records them in `~/.codex/config.toml`. Pull new commits with `codex plugin marketplace upgrade pak-plugins`, which also refreshes installed plugins. Codex shows a plugin without a version as `1.0.0` or `local` and has no auto-update. Remove one with `codex plugin remove eli5@pak-plugins`.
 
 ### Grok Bot
 
@@ -79,7 +79,7 @@ In Codex, a `SessionStart` hook starts each session with Claude Code's memory se
 
 ```sh
 codex plugin marketplace add aaron-pak/pak-plugins
-codex plugin add auto-memory@agent-plugins
+codex plugin add auto-memory@pak-plugins
 ```
 
 At its next start Codex says the plugin's hook needs review: choose "Trust all and continue", or trust it later in `/hooks`. Codex asks again after an update changes the hook, and until it's trusted, sessions start without the memory section. The server and the hook run with `node` (22.19 or later). Codex starts the server with only the variables the plugin names, so set `AGENT_MEMORY_DIR` (a relative path is read from your home folder), if you use it, in the shell you start Codex from; Codex's background server keeps the environment it started with, so restart it with `/daemon` after a change.
@@ -99,8 +99,8 @@ Left out for now: Claude Code's background extraction of memories at the end of 
 `instructions/AGENTS.md` holds the shared global instructions and `instructions/CLAUDE.md` imports them for Claude. Link them manually:
 
 ```sh
-ln -s ~/projects/agent-plugins/instructions/AGENTS.md ~/.codex/AGENTS.md
-ln -s ~/projects/agent-plugins/instructions/CLAUDE.md ~/.claude/CLAUDE.md
+ln -s ~/projects/pak-plugins/instructions/AGENTS.md ~/.codex/AGENTS.md
+ln -s ~/projects/pak-plugins/instructions/CLAUDE.md ~/.claude/CLAUDE.md
 ```
 
 `CLAUDE.md` imports `~/.codex/AGENTS.md`, so both links are needed for Claude to see the shared text.
@@ -118,13 +118,13 @@ Current mods:
 Install a mod for your user, so every session loads it:
 
 ```sh
-claude plugin install session-band@agent-plugins --scope user
+claude plugin install session-band@pak-plugins --scope user
 ```
 
 To try a mod from a checkout in one session and check it:
 
 ```sh
-claude --plugin-dir ~/projects/agent-plugins/plugins/session-band
+claude --plugin-dir ~/projects/pak-plugins/plugins/session-band
 claude plugin validate plugins/session-band
 ```
 

@@ -2256,7 +2256,7 @@ function drawArt(name, st) {
     }).join('');
     codeEl.innerHTML = html;
     if (pre.tagName === 'PRE' && codeEl === pre) { pre.innerHTML = '<code>' + html + '</code>'; codeEl = pre.querySelector('code'); }
-    // when code wraps, it wraps at spaces: a word with a hyphen or a slash in it (aaron-pak/agent-plugins, --dry-run) stays whole
+    // when code wraps, it wraps at spaces: a word with a hyphen or a slash in it (aaron-pak/pak-plugins, --dry-run) stays whole
     var tw = d.createTreeWalker(codeEl, NodeFilter.SHOW_TEXT), tn, todo = [];
     while ((tn = tw.nextNode())) if (/[-/]|<[^<>\n]+>/.test(tn.nodeValue) && !(tn.parentNode.classList && tn.parentNode.classList.contains('sk-lpin'))) todo.push(tn);
     todo.forEach(function (t) {
