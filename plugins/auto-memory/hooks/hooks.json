@@ -6,7 +6,8 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/mcp/hook.mjs\"",
-            "timeout": 10
+            "timeout": 10,
+            "additionalContextLimit": 24000
           }
         ]
       }

@@ -149,6 +149,15 @@ conversation, as with a simulated user. Use it for a real user's own follow-up (
 to follow. can we make them more like pretty logs?"), where a simulated user could paraphrase it.
 A case has `followups` or `user`, not both; `claude plugin eval` has neither.
 
+**A new session in the same sandbox.** A follow-up written as `{message: "...", new_session: true}`
+starts a new session instead of continuing the conversation: the same home, working folder and
+config folder, so whatever the earlier sessions left on disk is there (files, a memory store, their
+transcripts), and nothing of what was said. That is how a case tests what carries over between
+sessions: a correction made in the first session, then a task in a fresh one where it applies.
+`last_message` is the last session's reply (an empty reply stays empty, so it fails a grader rather
+than borrow an earlier session's), and `trace` holds every session, each starting at its
+own `init` event. A recorded case (`history_file`) can't have one.
+
 ## The suite file
 
 `<suite>/evals/suite.yaml` pins how the suite runs and names the setups it compares, so a result
@@ -313,7 +322,8 @@ run more than once should keep them.
   KEY=value` (one flag per variable; the runner's own HOME, TMPDIR, PATH and config folders can't be
   set this way; `KEY=` sets it empty, which is how to undo one the runner sets, such as
   `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, since Claude Code takes any non-empty value, `0`
-  included, as on) and the case's `env`. The plugin and `add_dirs` folders are copies, so a run can't
+  included, as on) and the case's `env`. A value may name the run's own home as `${HOME}`
+  (`AGENT_MEMORY_DIR: ${HOME}/.agents/memory`), since a suite can't know where a run's sandbox is. The plugin and `add_dirs` folders are copies, so a run can't
   change the originals. Under Claude Code, the file tools are denied the user's home and the run's
   results folder, and can't write the plugin; Bash runs in Claude Code's OS sandbox, which can't
   read the user's home. Codex runs in its read-only sandbox, or workspace-write when the case grants

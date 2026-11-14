@@ -8136,6 +8136,27 @@ function splitFrontmatter(text, file) {
     throw new CaseError(`${file}: frontmatter must be a YAML map`);
   return { fm, body: m[2], had: true };
 }
+function followupList(c, ex) {
+  const v = ex.followups;
+  if (v === undefined)
+    return;
+  const bad = () => {
+    c.add("execution.followups", "expected a list of messages, each a string or {message, new_session}");
+    return;
+  };
+  if (!Array.isArray(v))
+    return bad();
+  const out = [];
+  for (const item of v) {
+    if (typeof item === "string")
+      out.push({ message: item, newSession: false });
+    else if (isObj(item) && typeof item.message === "string" && Object.keys(item).every((k) => k === "message" || k === "new_session") && (item.new_session === undefined || typeof item.new_session === "boolean"))
+      out.push({ message: item.message, newSession: item.new_session === true });
+    else
+      return bad();
+  }
+  return out;
+}
 
 class Check {
   issues = [];
@@ -8478,14 +8499,22 @@ function loadCase(dir, evalRoot) {
     execution.user = { persona: persona.trim(), turns: userTurns ?? 2 };
   else if (userTurns !== undefined)
     c.add("execution.user_turns", "needs execution.user (the simulated user's persona)");
-  const followups = c.strs(ex, "followups", "execution.");
+  const followups = followupList(c, ex);
   if (followups !== undefined) {
     if (execution.user)
       c.add("execution.followups", "use followups or a simulated user, not both");
-    else if (followups.length === 0 || followups.length > 10 || followups.some((f) => !f.trim()))
+    else if (followups.length === 0 || followups.length > 10 || followups.some((f) => !f.message.trim()))
       c.add("execution.followups", "1 to 10 messages, none empty");
-    else
-      execution.followups = followups.map((f) => f.trim());
+    else {
+      execution.followups = followups.map((f) => f.message.trim());
+      const fresh = followups.flatMap((f, i) => f.newSession ? [i + 1] : []);
+      if (fresh.length > 0) {
+        if (context.history_file !== undefined)
+          c.add("execution.followups", "a follow-up in a new session can't follow a recorded conversation");
+        else
+          execution.new_sessions = fresh;
+      }
+    }
   }
   const graders = [];
   if (merged.graders !== undefined && merged.graders !== null && !Array.isArray(merged.graders))
@@ -10393,7 +10422,8 @@ function regex(g, ctx) {
 }
 function requestOf(c) {
   const turns = [c.execution.prompt, ...c.execution.followups ?? []];
-  return turns.length === 1 ? turns[0] : turns.map((t, i) => `Message ${i + 1}:
+  const fresh = (i) => c.execution.new_sessions?.includes(i) ? " (in a new session)" : "";
+  return turns.length === 1 ? turns[0] : turns.map((t, i) => `Message ${i + 1}${fresh(i)}:
 ${t}`).join(`
 
 `);
@@ -10723,6 +10753,7 @@ function passedEnv(from = process.env) {
   return out;
 }
 function runEnv(box, extra, from = process.env) {
+  const own = Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, v.replaceAll("${HOME}", () => box.home)]));
   return {
     ...passedEnv(from),
     HOME: box.home,
@@ -10734,7 +10765,7 @@ function runEnv(box, extra, from = process.env) {
     TMPDIR: box.tmpDir,
     TMP: box.tmpDir,
     TEMP: box.tmpDir,
-    ...extra
+    ...own
   };
 }
 function operatorHome() {
@@ -10984,7 +11015,7 @@ function sandboxSettings(box, request) {
         allowWrite: [box.home, box.tmpDir],
         denyWrite: [box.configDir, box.outDir, ...request.readOnlyDirs, join14(box.home, ".config", "git"), ...suite],
         denyRead: [operatorHome(), box.configDir, box.outDir, ...suite],
-        allowRead: [box.home, box.tmpDir, ...request.readOnlyDirs, ...request.addDirs]
+        allowRead: [box.home, box.tmpDir, join14(box.configDir, "projects"), ...request.readOnlyDirs, ...request.addDirs]
       },
       network: { allowedDomains: [] }
     }
@@ -11697,7 +11728,7 @@ function merge(a, b) {
     ...b,
     messages: [...a.messages, ...b.messages],
     toolCalls: [...a.toolCalls, ...b.toolCalls],
-    lastAssistantText: b.lastAssistantText || a.lastAssistantText,
+    lastAssistantText: b.lastAssistantText,
     numTurns: a.numTurns + b.numTurns,
     costUsd: a.costUsd + b.costUsd,
     sessionId: b.sessionId ?? a.sessionId
@@ -11715,7 +11746,8 @@ async function converse(user, request, first, options, aborted) {
       break;
     if ("followups" in user) {
       const next = user.followups[i];
-      const more = await options.harness.run({ ...request, prompt: next, continueSession: run.sessionId });
+      const fresh = user.newSessions?.includes(i + 1) === true;
+      const more = await options.harness.run(fresh ? { ...request, prompt: next, continueSession: undefined, historyFile: undefined } : { ...request, prompt: next, continueSession: run.sessionId });
       traces.push(read(more.tracePath));
       turns.push({ user: next, agent: more.lastAssistantText });
       run = merge(run, more);
@@ -12382,7 +12414,7 @@ async function runOne(job, options, runsDir, state) {
     run = await options.harness.run(request);
     let conversation;
     const notes = [...loaded.notes];
-    const side = c.execution.user ?? (c.execution.followups && { followups: c.execution.followups });
+    const side = c.execution.user ?? (c.execution.followups && { followups: c.execution.followups, newSessions: c.execution.new_sessions });
     if (side) {
       const talked = await converse(side, request, run, options, () => aborted !== undefined);
       run = talked.run;
@@ -16300,7 +16332,7 @@ function shown(c, evalDir, inputs, grading, suiteRuns) {
     layerDirs(c.dir, evalDir).some((d) => existsSync29(join29(d, "mocks"))) && "mocked MCP servers"
   ].filter((s) => Boolean(s));
   const after = [
-    ...(x.followups ?? []).map((m, i) => `follow-up ${i + 1}, word for word: ${m}`),
+    ...(x.followups ?? []).map((m, i) => `follow-up ${i + 1}${x.new_sessions?.includes(i + 1) ? ", in a new session" : ""}, word for word: ${m}`),
     ...x.user ? [`then a simulated user for up to ${x.user.turns} more messages: ${x.user.persona}`] : []
   ];
   return {

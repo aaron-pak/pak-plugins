@@ -11923,6 +11923,9 @@ var memoryError = (error) => new MemoryError({ message: messageOf(error) });
 
 // plugins/auto-memory/src/store.ts
 var INDEX = "MEMORY.md";
+var SESSION_MARKS = [".auto-memory", "sessions"];
+var MARK_DAYS = 30;
+var safeSessionId = (id) => typeof id === "string" && /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,127}$/.test(id) ? id : null;
 function hash2(text) {
   let h = 0;
   for (let i = 0;i < text.length; i++)
@@ -12047,7 +12050,21 @@ class Store extends Service()("auto-memory/Store") {
       const temp = `${file}.tmp.${randomBytes2(4).toString("hex")}`;
       yield* fs.writeFileString(temp, content, { flag: "wx" }).pipe(andThen2(fs.rename(temp, file)), mapError2(memoryError), onError2(() => fs.remove(temp, { force: true }).pipe(ignore2)));
     });
+    const marks = paths.join(root, ...SESSION_MARKS);
+    const markSession = fn2("Store.markSession")(function* (id) {
+      yield* fs.makeDirectory(marks, { recursive: true });
+      yield* fs.writeFileString(paths.join(marks, id), "");
+      const old = Date.now() - MARK_DAYS * 24 * 60 * 60 * 1000;
+      for (const name of yield* fs.readDirectory(marks)) {
+        const info = yield* fs.stat(paths.join(marks, name)).pipe(option2);
+        const time = flatMap(info, (info2) => info2.mtime);
+        if (isSome2(time) && time.value.getTime() < old)
+          yield* fs.remove(paths.join(marks, name)).pipe(ignore2);
+      }
+    }, (effect2) => ignore2(effect2));
     return Store.of({
+      markSession,
+      sessionMarked: (id) => exists(paths.join(marks, id)),
       dirFor: (cwd) => projectBase(cwd).pipe(map5((base) => paths.join(root, "projects", sanitize(base), "memory") + paths.sep)),
       ensure: (dir) => fs.makeDirectory(dir, { recursive: true }).pipe(ignore2),
       read,
@@ -12123,6 +12140,7 @@ function sessionContext(dir, content) {
 
 ${index}` : section(dir);
 }
+var UNTRUSTED_HOOK = "auto-memory: this Codex session started without the plugin's SessionStart hook, which loads the " + "memory section and index below at the start of every session. The usual cause: Codex skips a " + "plugin's hook until the user trusts it, and again after every update of the plugin. Tell the user " + "this once, in your next reply: the auto-memory hook is most likely not trusted in Codex, so memory " + "loads only when a memory tool is called; to trust it, run /hooks in the Codex CLI and trust the " + 'auto-memory hook (t trusts all), or choose "Trust all and continue" when Codex asks at the start of ' + "a session. If the hook is trusted already, Codex's background server may have started with another " + "AGENT_MEMORY_DIR than the hook: restarting it with /daemon fixes that.";
 
 // plugins/auto-memory/src/hook.ts
 var trim3 = (path) => path.replace(/[/\\]+$/, "");
@@ -12136,23 +12154,25 @@ function claudeCodeCheck(env, root) {
   };
 }
 var inClaudeCode = (env) => !env.PLUGIN_ROOT && (Boolean(env.CLAUDE_PLUGIN_ROOT) || env.CLAUDECODE === "1");
-var sessionStart = fn2("sessionStart")(function* (cwd) {
+var sessionStart = fn2("sessionStart")(function* (cwd, session = null) {
   const store = yield* Store;
   const fs = yield* FileSystem;
   const paths = yield* Path;
   const dir = yield* store.dirFor(cwd);
   yield* store.ensure(dir);
+  if (session !== null)
+    yield* store.markSession(session);
   const index = yield* fs.readFileString(paths.join(dir, INDEX)).pipe(orElseSucceed2(() => null));
   return { hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: sessionContext(dir, index) } };
 });
-var HookInput = fromJsonString2(Struct({ cwd: optional2(String5) }));
+var HookInput = fromJsonString2(Struct({ cwd: optional2(String5), session_id: optional2(String5) }));
 var decodeInput = decodeUnknownOption2(HookInput);
 var run3 = fn2("run")(function* (input) {
   const config = yield* MemoryConfig;
   if (inClaudeCode(config.env))
     return claudeCodeCheck(config.env, config.root);
-  const cwd = decodeInput(input).pipe((decoded) => decoded._tag === "Some" ? decoded.value.cwd : undefined);
-  return yield* sessionStart(cwd || process.cwd());
+  const decoded = getOrUndefined(decodeInput(input));
+  return yield* sessionStart(decoded?.cwd || process.cwd(), safeSessionId(decoded?.session_id));
 });
 var Services = Store.layer.pipe(provideMerge(MemoryConfig.layer), provideMerge(layer10));
 if (process.argv[1]?.endsWith("hook.mjs")) {

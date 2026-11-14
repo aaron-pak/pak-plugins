@@ -5,7 +5,7 @@ Aaron's personal skills, packaged as a plugin marketplace that both Claude Code 
 Current plugins:
 
 - `artifact-design` (`artifact-design`, `artifact-diagramming` and, in Codex, `dataviz`, plus an `artifact` MCP server and the Sketchbook design system)
-- `auto-memory` (Claude Code's auto memory for Codex, sharing one store with Claude Code, see [Auto memory](#auto-memory))
+- `auto-memory` (Claude Code's auto memory for Codex, sharing one store with Claude Code, and a dream for both that fixes the memory from recent sessions, see [Auto memory](#auto-memory))
 - `create-skill`
 - `deeper-task` (Felix Rieseberg's prompt, see [Credits](#credits))
 - `dj-fetch` (needs `uv` and `ffprobe`; `setup_slskd.py` installs slskd)
@@ -82,7 +82,19 @@ codex plugin marketplace add aaron-pak/pak-plugins
 codex plugin add auto-memory@pak-plugins
 ```
 
-At its next start Codex says the plugin's hook needs review: choose "Trust all and continue", or trust it later in `/hooks`. Codex asks again after an update changes the hook, and until it's trusted, sessions start without the memory section. The server and the hook run with `node` (22.19 or later). Codex starts the server with only the variables the plugin names, so set `AGENT_MEMORY_DIR` (a relative path is read from your home folder), if you use it, in the shell you start Codex from; Codex's background server keeps the environment it started with, so restart it with `/daemon` after a change.
+At its next start Codex says the plugin's hook needs review: choose "Trust all and continue", or trust it later in `/hooks` (press `t` there to trust all). Codex keeps the trust in `~/.codex/config.toml`, for the plugin's files as they were, so it asks again after every update of the plugin, not only one that changes the hook. The Codex app and other clients may never ask, so trust it in the Codex CLI. Until it's trusted, Codex skips the hook without a word. The plugin covers for that: the server tells the model to read `/MEMORY.md` before its first reply when a session has no memory section, and the first memory tool result of such a session starts with the section, the index, and a note asking the model to tell you that the hook isn't trusted. The server and the hook run with `node` (22.19 or later).
+
+A Codex that added this marketplace as `agent-plugins`, its name before it was renamed, refuses to upgrade it ("upgraded marketplace name `pak-plugins` does not match configured marketplace `agent-plugins`"). List what you installed from it, remove each plugin and the marketplace, then add them back under the new name, and trust the hook again, since its trust is kept under the marketplace's name:
+
+```sh
+codex plugin list
+codex plugin remove auto-memory@agent-plugins   # and each other plugin installed from it
+codex plugin marketplace remove agent-plugins
+codex plugin marketplace add aaron-pak/pak-plugins
+codex plugin add auto-memory@pak-plugins
+```
+
+Codex starts the server with only the variables the plugin names: `AGENT_MEMORY_DIR` (a relative path is read from your home folder), and `CODEX_HOME` and `CLAUDE_CONFIG_DIR`, where a dream finds Codex's and Claude Code's sessions. Set them, if you use them, in the shell you start Codex from; Codex's background server keeps the environment it started with, so restart it with `/daemon` after a change.
 
 Claude Code keeps its own auto memory, which this plugin doesn't replace; point it at the shared store in `~/.claude/settings.json` (use your home folder's full path):
 
@@ -92,7 +104,16 @@ Claude Code keeps its own auto memory, which this plugin doesn't replace; point 
 
 To keep what Claude Code already remembers, move `~/.claude/projects/<project>/memory/` folders to `~/.agents/memory/projects/<project>/memory/` first. Put the setting in your user settings, not a project's `.claude/settings.json`, where Claude Code ignores it. `CLAUDE_CODE_REMOTE_MEMORY_DIR` isn't a documented setting, and it moves Claude Code's subagent memory (`agent-memory/`) into the shared folder too, so a Claude Code release could change what it does. Installed in Claude Code too, the plugin adds only a `SessionStart` check that warns when Claude Code's memory isn't in the shared store.
 
-Left out for now: Claude Code's background extraction of memories at the end of a turn, its recall of relevant memories into a turn, and its consolidation ("dream"), which are off in Claude Code unless a flag turns them on. [`UPSTREAM.md`](plugins/auto-memory/UPSTREAM.md) lists every change from Claude Code's text.
+Left out for now: Claude Code's background extraction of memories at the end of a turn and its recall of relevant memories into a turn, which are off in Claude Code unless a flag turns them on. [`UPSTREAM.md`](plugins/auto-memory/UPSTREAM.md) lists every change from Claude Code's text.
+
+The plugin's `dream` skill works in both harnesses. A dream reads the project's sessions since the last dream, from Claude Code (`~/.claude/projects`, or under `CLAUDE_CONFIG_DIR`) and Codex (`~/.codex/sessions`, or under `CODEX_HOME`). It checks each note against them and against the repository, fixes or downgrades a wrong note, merges duplicates, saves corrections the sessions missed in the user's own words, and tidies `MEMORY.md`. Ask for it ("dream", or `/auto-memory:dream` in Claude Code). Its helper, `skills/dream/scripts/dream.mjs`, shows each session as pages of text with long tool output cut, and keeps the run safe. A dream reads the oldest sessions first, up to 10 pages of about 10,000 tokens each; the newer ones wait for the next dream, which starts with them. It leaves out its own session and the part of any session where an earlier dream ran, to that dream's end (or to the user's next words, for a dream that never ended), keeping what the user said in it. A session it can't read is named, and the next dream tries it once more; if that one can't read it either, it is passed over.
+
+The memory root becomes a Git repository, and each dream is one commit by "auto-memory dream", so `git -C ~/.agents/memory log` lists the dreams and `git revert` undoes one. Before a dream edits anything, a snapshot commit saves what changed in that project's memory since the last commit; the helper refuses to commit a file that seems to hold a credential, and names it. Git's own `index.lock`, left by a Git that was killed, stops a step with the file's name: delete it once no Git is running in the memory root. The dream's commit holds every change in the project's memory folder since the snapshot, so it also holds a note another session saved there while the dream ran: finish lists the files, and reverting the dream reverts those notes too. A note is retired only by a file that starts with `Obsolete:`, and finish deletes it only when Git holds an earlier version. `.dream-lock` in the project's memory folder keeps two dreams from running at once. The session that began a dream owns it, and only that session can finish or abort it (where no session id is known, begin prints a token that every later command carries as `--token`); `abort --force` removes another session's lock, for you to use when you know that dream died, and a lock nobody touched for two hours is taken over. `.consolidate-lock` beside it, which Claude Code's own dream also uses, records when the last dream started: a dream doesn't begin while Claude Code's holds it, and moves its time forward, never back. A dream works on one machine's sessions, so if the memory root is synced between machines, dream on one of them only: two machines dreaming over one root would each commit and lock on their own. The helper sends nothing anywhere: sessions reach only the model that runs the dream. In Codex, whose sandbox keeps the memory folder and any `.git` folder read-only, the memory server's `memory_dream` tool takes the steps that write. To dream between sessions without a person, run one of these from the project's folder, from launchd or cron (the first needs Claude Code's memory in the shared store, as above, so that it may write there):
+
+```sh
+claude -p "/auto-memory:dream" --allowedTools "Bash(node:*)" Read Write Edit Glob Grep
+codex exec "Use the auto-memory dream skill."
+```
 
 ## Global instructions
 
@@ -135,6 +156,8 @@ The session reloads the mod when its files change, so edits show up without a re
 The `artifact-design` plugin began as a copy of Anthropic's built-in Claude Code `artifact-design`, `artifact-diagramming` and `dataviz` skills (2.1.304), with an `artifact` MCP server standing in for Claude Code's Artifact tool and `ArtifactCheck`. It now goes its own way around a design system, Sketchbook, which is drawn from Anthropic's public look. `artifact-diagramming` and `dataviz` are still Anthropic's text, unchanged except for one sentence each about claude.ai-only features, and only Codex gets `dataviz` (from `codex-skills/`), since Claude Code always has its own; the design guidance used where no design system is installed is Anthropic's too. [`UPSTREAM.md`](plugins/artifact-design/UPSTREAM.md) says what is whose. The server's bundle includes [Effect](https://github.com/Effect-TS/effect), under the MIT license, and Sketchbook's pages load Bricolage Grotesque, Literata, JetBrains Mono and Kalam from Google Fonts.
 
 `auto-memory` carries Claude Code 2.1.318's auto memory text, its memory section and the `memory_list`, `memory_read` and `memory_write` tool descriptions, with the edits [`UPSTREAM.md`](plugins/auto-memory/UPSTREAM.md) lists, and ports its project keys, index truncation and tool behavior. Its bundles include [Effect](https://github.com/Effect-TS/effect), under the MIT license.
+
+The `auto-memory` dream's instructions are Claude Code 2.1.325's dream prompt, with rules for reading sessions taken from the memory distillation prompts in Anthropic's [claude-cookbooks](https://github.com/anthropics/claude-cookbooks/tree/ce8b2629efe8b24048b127b4c79af1e9cbab93d4/managed_agents/example_data/memory_distill/prompts) (ce8b262), under the MIT license in the skill's directory. [`UPSTREAM.md`](plugins/auto-memory/UPSTREAM.md) lists every change.
 
 `deeper-task` is the depth prompt from Felix Rieseberg's post [How to be more ambitious](https://felixrieseberg.com/how-to-be-more-ambitious-a-tutorial-for-humans-with-models/), word for word as the skill's body. The post gives no license.
 

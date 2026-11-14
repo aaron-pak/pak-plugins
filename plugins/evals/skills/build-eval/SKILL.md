@@ -108,7 +108,8 @@ pass criteria from the target's own SKILL.md: that is the author's intent, not t
 experience. Grant exactly the tools the graders need, and size `max_turns` and `timeout_seconds`
 to the work. Work the user looks at (a page, a document) is judged after the runs by a panel
 declared in the suite file's `panel:`; work that shows over several turns gets `followups:` (the
-user's real next messages) or a simulated `user:`. If the flow calls MCP tools, mock every one;
+user's real next messages) or a simulated `user:`, and what should carry from one session to the
+next (a memory, a saved file) gets a follow-up with `new_session: true`. If the flow calls MCP tools, mock every one;
 no case reaches a real service. `docs/case-format.md` has each format.
 
 **Grading gate, then grade.** Show the user what decides a pass (the same cases page), record

@@ -209,7 +209,8 @@ as the capture did, or it no longer tests the failure.
 Each run gets a temporary home, working folder and config folder: no user settings, instruction
 files (unless the case loads one on purpose), memory, hooks, MCP servers or other plugins load, and
 writes stay inside the run's folders. Claude Code's file tools and its Bash sandbox also can't read
-the user's home; Codex's sandbox limits writes and network but not reads, so a Codex run can see
+the user's home. In the run's own config folder, commands can read only `projects/` (the sessions
+of the run and any a case seeded), while the file tools can read all of it. Codex's sandbox limits writes and network but not reads, so a Codex run can see
 files a Claude Code run can't. That is what keeps runs from touching real sessions and services.
 MCP servers are mocked unless real ones are explicitly started, and no case may reach a real
 service. Anything the agent must not see (expected answers, graders, the evidence in `original.md`)
