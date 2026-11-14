@@ -82,7 +82,17 @@ codex plugin marketplace add aaron-pak/pak-plugins
 codex plugin add auto-memory@pak-plugins
 ```
 
-At its next start Codex says the plugin's hook needs review: choose "Trust all and continue", or trust it later in `/hooks` (press `t` there to trust all). Codex keeps the trust in `~/.codex/config.toml`, for the plugin's files as they were, so it asks again after every update of the plugin, not only one that changes the hook. The Codex app and other clients may never ask, so trust it in the Codex CLI. Until it's trusted, Codex skips the hook without a word. The plugin covers for that: the server tells the model to read `/MEMORY.md` before its first reply when a session has no memory section, and the first memory tool result of such a session starts with the section, the index, and a note asking the model to tell you that the hook isn't trusted. The server and the hook run with `node` (22.19 or later).
+At its next start Codex says the plugin's hook needs review: choose "Trust all and continue", or trust it later in `/hooks` (press `t` there to trust all). Codex keeps the trust in `~/.codex/config.toml`, for the plugin's files as they were, so it asks again after every update of the plugin, not only one that changes the hook. The Codex app and other clients may never ask, so trust it in the Codex CLI. Until it's trusted, Codex skips the hook without a word. The server and the hook run with `node` (22.19 or later).
+
+To be asked once and not after every update, put the hook in your own Codex hooks file, `~/.codex/hooks.json`:
+
+```sh
+node ~/.codex/plugins/cache/pak-plugins/auto-memory/local/mcp/hook.mjs install
+```
+
+With `CODEX_HOME` set, the plugin and the hooks file are under that folder in place of `~/.codex`. Codex asks about that hook at its next start, and from then on trusts it by its entry in that file alone, so it keeps running when the plugin updates. That is also its cost: Codex no longer asks you to look again when the plugin's code changes, so do it only for a marketplace you trust. The plugin's own hook can stay untrusted, and when both are trusted only one of them adds the memory section. The same command with `uninstall` takes the hook out. Run it before you remove the plugin: afterwards the command is gone with the plugin, the hook fails at every start, and you have to delete its entry from `~/.codex/hooks.json` by hand.
+
+The plugin also covers for a skipped hook. The memory tools' descriptions and a small Codex skill, `memory-first`, tell the model to read `/MEMORY.md` before its first reply when a session has no memory section, and the first memory tool result of such a session starts with the section, the index, and a note asking the model to tell you that the hook didn't run. Treat it as a net, not as the way in: a model can still answer without reading.
 
 A Codex that added this marketplace as `agent-plugins`, its name before it was renamed, refuses to upgrade it ("upgraded marketplace name `pak-plugins` does not match configured marketplace `agent-plugins`"). List what you installed from it, remove each plugin and the marketplace, then add them back under the new name, and trust the hook again, since its trust is kept under the marketplace's name:
 

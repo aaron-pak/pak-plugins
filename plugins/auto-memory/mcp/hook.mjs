@@ -167,6 +167,12 @@ function isString(input) {
 function isNumber(input) {
   return typeof input === "number";
 }
+function isSymbol(input) {
+  return typeof input === "symbol";
+}
+function isPropertyKey(u) {
+  return isString(u) || isNumber(u) || isSymbol(u);
+}
 function isFunction(input) {
   return typeof input === "function";
 }
@@ -4216,6 +4222,7 @@ var wallTimeNanos = /* @__PURE__ */ function() {
 }();
 var clockWith = (f) => withFiber((fiber) => f(fiber.getRef(ClockRef)));
 var sleep = (duration) => clockWith((clock) => clock.sleep(fromInputUnsafe(duration)));
+var currentTimeMillis = /* @__PURE__ */ clockWith((clock) => clock.currentTimeMillis);
 var AsyncFiberErrorTypeId = "~effect/Cause/AsyncFiberError";
 class AsyncFiberError extends (/* @__PURE__ */ TaggedError("AsyncFiberError")) {
   [AsyncFiberErrorTypeId] = AsyncFiberErrorTypeId;
@@ -4604,6 +4611,9 @@ var mergeAllEffect = (layers, memoMap, scope) => {
 var mergeAll2 = (...layers) => fromBuildMemo((memoMap, scope) => mergeAllEffect(layers, memoMap, scope));
 var provideWith = (self, that, f) => fromBuildMemo((memoMap, scope) => flatMap2(Array.isArray(that) ? mergeAllEffect(that, memoMap, scope) : that.build(memoMap, scope), (context) => self.build(memoMap, scope).pipe(provideContext(context), map3((merged) => f(merged, context)))));
 var provideMerge = /* @__PURE__ */ dual(2, (self, that) => provideWith(self, that, (self, that) => merge(that, self)));
+
+// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Clock.js
+var currentTimeMillis2 = currentTimeMillis;
 
 // node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Pull.js
 var catchDone = /* @__PURE__ */ dual(2, (effect, f) => catchCauseFilter(effect, filterDoneLeftover, (l) => f(l)));
@@ -8364,6 +8374,53 @@ function withConstructorDefault(ast, defaultValue) {
 function decodeTo(from, to, transformation) {
   return appendTransformation(from, transformation, to);
 }
+function parseParameter(ast) {
+  const literals = [];
+  const parameters = [];
+  function addLiteral(literal) {
+    if (!literals.includes(literal)) {
+      literals.push(literal);
+    }
+  }
+  function go(ast) {
+    switch (ast._tag) {
+      case "Literal":
+        if (isPropertyKey(ast.literal)) {
+          addLiteral(ast.literal);
+        }
+        return;
+      case "UniqueSymbol":
+        addLiteral(ast.symbol);
+        return;
+      case "Enum":
+        for (const [, value] of ast.enums) {
+          addLiteral(value);
+        }
+        return;
+      case "Never":
+        return;
+      case "Union":
+        for (let i = 0;i < ast.types.length; i++) {
+          go(ast.types[i]);
+        }
+        return;
+      default:
+        parameters.push(ast);
+    }
+  }
+  go(ast);
+  return {
+    literals,
+    parameters
+  };
+}
+function record(key, value) {
+  const {
+    literals,
+    parameters: indexSignatures
+  } = parseParameter(key);
+  return new Objects(literals.map((literal) => new PropertySignature(literal, value)), indexSignatures.map((parameter) => new IndexSignature(parameter, value)));
+}
 function isOptional(ast) {
   return ast.context?.isOptional ?? false;
 }
@@ -11058,6 +11115,7 @@ function Literal2(literal) {
   });
   return out;
 }
+var Unknown2 = /* @__PURE__ */ make21(unknown);
 var Undefined2 = /* @__PURE__ */ make21(undefined_2);
 var String5 = /* @__PURE__ */ make21(string2);
 var Number5 = /* @__PURE__ */ make21(number2);
@@ -11072,6 +11130,12 @@ function makeStruct(ast, fields) {
 }
 function Struct(fields) {
   return makeStruct(struct(fields, undefined), fields);
+}
+function Record(key, value) {
+  return make21(record(key.ast, value.ast), {
+    key,
+    value
+  });
 }
 function makeUnion(ast, members) {
   return make21(ast, {
@@ -11864,6 +11928,9 @@ function String6(name) {
 // node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Console.js
 var Console = ConsoleRef;
 var consoleWith = (f) => withFiber((fiber) => f(fiber.getRef(Console)));
+var error = (...args) => consoleWith((console) => sync(() => {
+  console.error(...args);
+}));
 var log = (...args) => consoleWith((console) => sync(() => {
   console.log(...args);
 }));
@@ -11878,7 +11945,8 @@ var NAMES = [
   "PLUGIN_ROOT",
   "CLAUDE_PLUGIN_ROOT",
   "CLAUDECODE",
-  "PWD"
+  "PWD",
+  "CODEX_HOME"
 ];
 var expandHome = (path, home) => path === "~" ? home : path.startsWith("~/") ? join4(home, path.slice(2)) : path;
 function memoryRoot(env, home) {
@@ -11925,6 +11993,8 @@ var memoryError = (error) => new MemoryError({ message: messageOf(error) });
 var INDEX = "MEMORY.md";
 var SESSION_MARKS = [".auto-memory", "sessions"];
 var MARK_DAYS = 30;
+var START_CLAIMS = [".auto-memory", "starts"];
+var CLAIM_MS = 2000;
 var safeSessionId = (id) => typeof id === "string" && /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,127}$/.test(id) ? id : null;
 function hash2(text) {
   let h = 0;
@@ -12062,8 +12132,33 @@ class Store extends Service()("auto-memory/Store") {
           yield* fs.remove(paths.join(marks, name)).pipe(ignore2);
       }
     }, (effect2) => ignore2(effect2));
+    const starts = paths.join(root, ...START_CLAIMS);
+    const claimStart = fn2("Store.claimStart")(function* (id) {
+      yield* fs.makeDirectory(starts, { recursive: true });
+      const now = yield* currentTimeMillis2;
+      const stretch = Math.floor(now / CLAIM_MS);
+      const created = yield* fs.writeFileString(paths.join(starts, `${id}.${stretch}`), "", { flag: "wx" }).pipe(as2(true), catch_2((error) => error.reason._tag === "AlreadyExists" ? succeed6(false) : fail7(error)));
+      if (!created)
+        return false;
+      let first = true;
+      for (const name of yield* fs.readDirectory(starts)) {
+        const dot = name.lastIndexOf(".");
+        const other = Number(name.slice(dot + 1));
+        if (!Number.isInteger(other) || other >= stretch)
+          continue;
+        const info = yield* fs.stat(paths.join(starts, name)).pipe(option2);
+        const time = flatMap(info, (info2) => info2.mtime);
+        const age = isSome2(time) ? now - time.value.getTime() : Infinity;
+        if (name.slice(0, dot) === id && other === stretch - 1 && age < CLAIM_MS)
+          first = false;
+        else if (age > 60 * CLAIM_MS)
+          yield* fs.remove(paths.join(starts, name)).pipe(ignore2);
+      }
+      return first;
+    }, (effect2) => effect2.pipe(orElseSucceed2(() => true)));
     return Store.of({
       markSession,
+      claimStart,
       sessionMarked: (id) => exists(paths.join(marks, id)),
       dirFor: (cwd) => projectBase(cwd).pipe(map5((base) => paths.join(root, "projects", sanitize(base), "memory") + paths.sep)),
       ensure: (dir) => fs.makeDirectory(dir, { recursive: true }).pipe(ignore2),
@@ -12140,7 +12235,156 @@ function sessionContext(dir, content) {
 
 ${index}` : section(dir);
 }
-var UNTRUSTED_HOOK = "auto-memory: this Codex session started without the plugin's SessionStart hook, which loads the " + "memory section and index below at the start of every session. The usual cause: Codex skips a " + "plugin's hook until the user trusts it, and again after every update of the plugin. Tell the user " + "this once, in your next reply: the auto-memory hook is most likely not trusted in Codex, so memory " + "loads only when a memory tool is called; to trust it, run /hooks in the Codex CLI and trust the " + 'auto-memory hook (t trusts all), or choose "Trust all and continue" when Codex asks at the start of ' + "a session. If the hook is trusted already, Codex's background server may have started with another " + "AGENT_MEMORY_DIR than the hook: restarting it with /daemon fixes that.";
+
+// plugins/auto-memory/src/setup.ts
+var USER_HOOK_FLAG = "--user-hook";
+var TIMEOUT_SECONDS = 10;
+var CONTEXT_LIMIT = 24000;
+
+class SetupError extends TaggedError3()("SetupError", {
+  message: String5
+}) {
+}
+var shellWord = (text) => /^[\w@%+=:,./-]+$/.test(text) ? text : `'${text.replace(/'/g, `'\\''`)}'`;
+var userHookCommand = (script) => `node ${shellWord(script)} ${USER_HOOK_FLAG}`;
+var isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isOurs = (handler) => isRecord(handler) && typeof handler.command === "string" && /(^|[/\\'"\s])hook\.mjs['"]?\s+--user-hook\s*$/.test(handler.command);
+function groupsOf(file) {
+  if (file.hooks === undefined)
+    return [];
+  if (!isRecord(file.hooks))
+    return null;
+  const groups = file.hooks.SessionStart ?? [];
+  if (!Array.isArray(groups))
+    return null;
+  const isGroup = (group) => isRecord(group) && Array.isArray(group.hooks);
+  return groups.every(isGroup) ? groups : null;
+}
+var withGroups = (file, groups) => ({
+  ...file,
+  hooks: { ...isRecord(file.hooks) ? file.hooks : {}, SessionStart: groups }
+});
+function withUserHook(file, command) {
+  const groups = groupsOf(file);
+  if (groups === null)
+    return null;
+  const hook = { type: "command", command, timeout: TIMEOUT_SECONDS, additionalContextLimit: CONTEXT_LIMIT };
+  let found = false;
+  let same = true;
+  let dropped = 0;
+  const next = groups.flatMap((group) => {
+    const hooks = group.hooks.flatMap((handler) => {
+      if (!isOurs(handler))
+        return [handler];
+      if (found) {
+        dropped += 1;
+        return [];
+      }
+      found = true;
+      const merged = { ...handler, ...hook };
+      same = JSON.stringify(handler) === JSON.stringify(merged);
+      return [merged];
+    });
+    return hooks.length === 0 && group.hooks.length > 0 ? [] : [{ ...group, hooks }];
+  });
+  if (found) {
+    const none = same && dropped === 0;
+    return { file: none ? file : withGroups(file, next), change: none ? "none" : "updated", dropped };
+  }
+  return { file: withGroups(file, [...groups, { hooks: [hook] }]), change: "added", dropped };
+}
+function withoutUserHook(file) {
+  const groups = groupsOf(file);
+  if (groups === null)
+    return null;
+  let removed = false;
+  const next = groups.flatMap((group) => {
+    const hooks = group.hooks.filter((handler) => !isOurs(handler));
+    if (hooks.length === group.hooks.length)
+      return [group];
+    removed = true;
+    return hooks.length > 0 ? [{ ...group, hooks }] : [];
+  });
+  return { file: removed ? withGroups(file, next) : file, removed };
+}
+var decodeFile = decodeUnknownOption2(fromJsonString2(Record(String5, Unknown2)));
+var codexHome = gen2(function* () {
+  const paths = yield* Path;
+  const { env, home } = yield* MemoryConfig;
+  const set = env.CODEX_HOME?.trim();
+  return set ? paths.resolve(home, expandHome(set, home)) : paths.join(home, ".codex");
+});
+var readHooks = gen2(function* () {
+  const fs = yield* FileSystem;
+  const paths = yield* Path;
+  const path = paths.join(yield* codexHome, "hooks.json");
+  const text = yield* fs.readFileString(path).pipe(catch_2((error) => error.reason._tag === "NotFound" ? succeed6(null) : fail7(new SetupError({ message: `Can't read ${path}: ${messageOf(error)}` }))));
+  const empty = {};
+  if (text === null || !text.trim())
+    return { path, file: empty };
+  const file = decodeFile(text);
+  if (file._tag === "None")
+    return yield* new SetupError({ message: `${path} is not a JSON object, so it is left as it is.` });
+  return { path, file: file.value };
+});
+var writeHooks = fn2("writeHooks")(function* (path, file) {
+  const fs = yield* FileSystem;
+  const paths = yield* Path;
+  yield* fs.makeDirectory(paths.dirname(path), { recursive: true }).pipe(ignore2);
+  const real = yield* fs.realPath(path).pipe(option2);
+  if (isNone2(real)) {
+    if (isSome2(yield* fs.readLink(path).pipe(option2)))
+      return yield* new SetupError({
+        message: `${path} is a link that leads to no file, so it is left as it is.`
+      });
+  }
+  const mode = yield* fs.stat(path).pipe(map5((info) => info.mode & 511), option2);
+  if (isSome2(mode) && (mode.value & 128) === 0)
+    return yield* new SetupError({ message: `${path} is read-only, so it is left as it is.` });
+  const target = getOrElse(real, () => path);
+  const temp = `${target}.auto-memory-${process.pid}`;
+  yield* fs.writeFileString(temp, `${JSON.stringify(file, null, 2)}
+`).pipe(andThen2(isSome2(mode) ? fs.chmod(temp, mode.value) : void_3), andThen2(fs.rename(temp, target)), tapError2(() => fs.remove(temp).pipe(ignore2)), mapError2((error) => new SetupError({ message: `Can't write ${path}: ${messageOf(error)}` })));
+});
+var otherShape = (path, command) => new SetupError({
+  message: `${path} has another shape than {"hooks": {"SessionStart": [{"hooks": [...]}]}}, so it is left as it is. ` + `Add this to its SessionStart hooks by hand: {"hooks": [{"type": "command", "command": ${JSON.stringify(command)}, ` + `"timeout": ${TIMEOUT_SECONDS}, "additionalContextLimit": ${CONTEXT_LIMIT}}]}`
+});
+var install = fn2("install")(function* (script) {
+  const { path, file } = yield* readHooks;
+  const command = userHookCommand(script);
+  const result = withUserHook(file, command);
+  if (result === null)
+    return yield* otherShape(path, command);
+  if (result.change === "none")
+    return `auto-memory: ${path} already has the hook. If Codex has not asked about it, it is trusted.`;
+  yield* writeHooks(path, result.file);
+  return [
+    `auto-memory: ${result.change === "added" ? "added the SessionStart hook to" : "updated the SessionStart hook in"} ${path}.`,
+    ...result.dropped > 0 ? [
+      `It held ${result.dropped} more of this hook, which ${result.dropped === 1 ? "is" : "are"} taken out. ` + "Codex may ask to review hooks that came after in that file again."
+    ] : [],
+    "",
+    `Codex asks about a new or changed hook once. Start codex, choose "Review hooks", and trust the`,
+    `SessionStart hook whose source is ${path} (or run /hooks in a session).`,
+    "",
+    "Codex checks this hook by its entry in that file only, so it stays trusted when the plugin updates.",
+    "The plugin's own hook can stay untrusted: when both run, only one of them adds the memory section.",
+    `Before you remove the plugin, take the hook out again: node ${shellWord(script)} uninstall`
+  ].join(`
+`);
+});
+var uninstall = gen2(function* () {
+  const { path, file } = yield* readHooks;
+  const result = withoutUserHook(file);
+  if (result === null)
+    return yield* new SetupError({
+      message: `${path} has another shape than this command reads, so it is left as it is.`
+    });
+  if (!result.removed)
+    return `auto-memory: ${path} has no auto-memory hook.`;
+  yield* writeHooks(path, result.file);
+  return `auto-memory: removed the SessionStart hook from ${path}. Codex may ask to review hooks that came after it in that file again.`;
+});
 
 // plugins/auto-memory/src/hook.ts
 var trim3 = (path) => path.replace(/[/\\]+$/, "");
@@ -12158,6 +12402,8 @@ var sessionStart = fn2("sessionStart")(function* (cwd, session = null) {
   const store = yield* Store;
   const fs = yield* FileSystem;
   const paths = yield* Path;
+  if (session !== null && !(yield* store.claimStart(session)))
+    return null;
   const dir = yield* store.dirFor(cwd);
   yield* store.ensure(dir);
   if (session !== null)
@@ -12167,22 +12413,25 @@ var sessionStart = fn2("sessionStart")(function* (cwd, session = null) {
 });
 var HookInput = fromJsonString2(Struct({ cwd: optional2(String5), session_id: optional2(String5) }));
 var decodeInput = decodeUnknownOption2(HookInput);
-var run3 = fn2("run")(function* (input) {
+var run3 = fn2("run")(function* (input, codex = false) {
   const config = yield* MemoryConfig;
-  if (inClaudeCode(config.env))
+  if (!codex && inClaudeCode(config.env))
     return claudeCodeCheck(config.env, config.root);
   const decoded = getOrUndefined(decodeInput(input));
   return yield* sessionStart(decoded?.cwd || process.cwd(), safeSessionId(decoded?.session_id));
 });
 var Services = Store.layer.pipe(provideMerge(MemoryConfig.layer), provideMerge(layer10));
+var say = (command) => command.pipe(flatMap3((text) => log(text)), catch_2((error2) => error(`auto-memory: ${error2.message}`).pipe(andThen2(sync2(() => process.exitCode = 1)))));
 if (process.argv[1]?.endsWith("hook.mjs")) {
-  gen2(function* () {
+  const [word] = process.argv.slice(2);
+  const main = word === "install" ? say(install(process.argv[1])) : word === "uninstall" ? say(uninstall) : word !== undefined && word !== USER_HOOK_FLAG ? say(fail7(new SetupError({ message: `"${word}" is not a command. Use install or uninstall.` }))) : gen2(function* () {
     const stdio = yield* Stdio;
     const input = yield* stdio.stdin.pipe(decodeText2(), mkString, orElseSucceed2(() => ""));
-    const output = yield* run3(input);
+    const output = yield* run3(input, word === USER_HOOK_FLAG);
     if (output)
       yield* log(JSON.stringify(output));
-  }).pipe(tapCause2((cause) => logError(cause)), provideService2(LogToStderr2, true), provide3(Services), runMain2({ disableErrorReporting: true }));
+  });
+  main.pipe(tapCause2((cause) => logError(cause)), provideService2(LogToStderr2, true), provide3(Services), runMain2({ disableErrorReporting: true }));
 }
 export {
   Services,

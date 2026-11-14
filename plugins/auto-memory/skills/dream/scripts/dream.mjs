@@ -4385,6 +4385,7 @@ var wallTimeNanos = /* @__PURE__ */ function() {
 }();
 var clockWith = (f) => withFiber((fiber) => f(fiber.getRef(ClockRef)));
 var sleep = (duration) => clockWith((clock) => clock.sleep(fromInputUnsafe(duration)));
+var currentTimeMillis = /* @__PURE__ */ clockWith((clock) => clock.currentTimeMillis);
 var AsyncFiberErrorTypeId = "~effect/Cause/AsyncFiberError";
 class AsyncFiberError extends (/* @__PURE__ */ TaggedError("AsyncFiberError")) {
   [AsyncFiberErrorTypeId] = AsyncFiberErrorTypeId;
@@ -4777,6 +4778,9 @@ var mergeAllEffect = (layers, memoMap, scope) => {
 var mergeAll2 = (...layers) => fromBuildMemo((memoMap, scope) => mergeAllEffect(layers, memoMap, scope));
 var provideWith = (self, that, f) => fromBuildMemo((memoMap, scope) => flatMap2(Array.isArray(that) ? mergeAllEffect(that, memoMap, scope) : that.build(memoMap, scope), (context) => self.build(memoMap, scope).pipe(provideContext(context), map3((merged) => f(merged, context)))));
 var provideMerge = /* @__PURE__ */ dual(2, (self, that) => provideWith(self, that, (self, that) => merge(that, self)));
+
+// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Clock.js
+var currentTimeMillis2 = currentTimeMillis;
 
 // node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Number.js
 var Number3 = globalThis.Number;
@@ -17802,7 +17806,8 @@ var NAMES = [
   "PLUGIN_ROOT",
   "CLAUDE_PLUGIN_ROOT",
   "CLAUDECODE",
-  "PWD"
+  "PWD",
+  "CODEX_HOME"
 ];
 var expandHome = (path, home) => path === "~" ? home : path.startsWith("~/") ? join4(home, path.slice(2)) : path;
 function memoryRoot(env, home) {
@@ -17846,6 +17851,8 @@ var memoryError = (error) => new MemoryError({ message: messageOf(error) });
 var INDEX = "MEMORY.md";
 var SESSION_MARKS = [".auto-memory", "sessions"];
 var MARK_DAYS = 30;
+var START_CLAIMS = [".auto-memory", "starts"];
+var CLAIM_MS = 2000;
 function hash2(text) {
   let h = 0;
   for (let i = 0;i < text.length; i++)
@@ -17982,8 +17989,33 @@ class Store extends Service()("auto-memory/Store") {
           yield* fs.remove(paths.join(marks, name)).pipe(ignore2);
       }
     }, (effect2) => ignore2(effect2));
+    const starts = paths.join(root, ...START_CLAIMS);
+    const claimStart = fn2("Store.claimStart")(function* (id) {
+      yield* fs.makeDirectory(starts, { recursive: true });
+      const now = yield* currentTimeMillis2;
+      const stretch = Math.floor(now / CLAIM_MS);
+      const created = yield* fs.writeFileString(paths.join(starts, `${id}.${stretch}`), "", { flag: "wx" }).pipe(as2(true), catch_2((error) => error.reason._tag === "AlreadyExists" ? succeed6(false) : fail7(error)));
+      if (!created)
+        return false;
+      let first = true;
+      for (const name of yield* fs.readDirectory(starts)) {
+        const dot = name.lastIndexOf(".");
+        const other = Number(name.slice(dot + 1));
+        if (!Number.isInteger(other) || other >= stretch)
+          continue;
+        const info = yield* fs.stat(paths.join(starts, name)).pipe(option2);
+        const time = flatMap(info, (info2) => info2.mtime);
+        const age = isSome2(time) ? now - time.value.getTime() : Infinity;
+        if (name.slice(0, dot) === id && other === stretch - 1 && age < CLAIM_MS)
+          first = false;
+        else if (age > 60 * CLAIM_MS)
+          yield* fs.remove(paths.join(starts, name)).pipe(ignore2);
+      }
+      return first;
+    }, (effect2) => effect2.pipe(orElseSucceed2(() => true)));
     return Store.of({
       markSession,
+      claimStart,
       sessionMarked: (id) => exists(paths.join(marks, id)),
       dirFor: (cwd) => projectBase(cwd).pipe(map5((base) => paths.join(root, "projects", sanitize3(base), "memory") + paths.sep)),
       ensure: (dir) => fs.makeDirectory(dir, { recursive: true }).pipe(ignore2),
