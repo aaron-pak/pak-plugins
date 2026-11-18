@@ -2,7 +2,7 @@
 
 // plugins/auto-memory/src/hook.ts
 import { isAbsolute as isAbsolute3 } from "node:path";
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Pipeable.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Pipeable.js
 var pipeArguments = (self, args) => {
   switch (args.length) {
     case 0:
@@ -45,7 +45,7 @@ var Class = /* @__PURE__ */ function() {
   return PipeableBase;
 }();
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Function.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Function.js
 var dual = function(arity, body) {
   if (typeof arity === "function") {
     return function() {
@@ -121,13 +121,18 @@ function memoizeIdempotent(f) {
   };
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/equal.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/equal.js
+var errorSiteKeys = ["line", "column", "sourceURL", "originalLine", "originalColumn"];
 var getAllObjectKeys = (obj) => {
   const keys = new Set(Reflect.ownKeys(obj));
   if (obj.constructor === Object)
     return keys;
   if (obj instanceof Error) {
     keys.delete("stack");
+    for (const key of errorSiteKeys) {
+      if (!Object.prototype.propertyIsEnumerable.call(obj, key))
+        keys.delete(key);
+    }
   }
   const proto = Object.getPrototypeOf(obj);
   let current = proto;
@@ -154,13 +159,13 @@ var bufferBytes = (buffer) => {
   }
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/hash.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/hash.js
 var backEdges = 0;
 var addBackEdge = () => {
   backEdges++;
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Predicate.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Predicate.js
 function isString(input) {
   return typeof input === "string";
 }
@@ -203,7 +208,7 @@ function isIterable(input) {
   return hasProperty(input, Symbol.iterator) || isString(input);
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Hash.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Hash.js
 var symbol = "~effect/Hash";
 var hash = (self) => {
   switch (typeof self) {
@@ -331,7 +336,7 @@ var randomHashCache = /* @__PURE__ */ new WeakMap;
 var hashCache = /* @__PURE__ */ new WeakMap;
 var visitedObjects = /* @__PURE__ */ new WeakSet;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Equal.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Equal.js
 var symbol2 = "~effect/Equal";
 function equals() {
   if (arguments.length === 1) {
@@ -504,7 +509,7 @@ var entryHash = (entry) => hash(entry[0]);
 var equalEntries = (self, that) => compareBoth(self[0], that[0]) && compareBoth(self[1], that[1]);
 var isEqual = (u) => hasProperty(u, symbol2) && typeof u[symbol2] === "function";
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Redactable.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Redactable.js
 var symbolRedactable = /* @__PURE__ */ Symbol.for("~effect/Redactable");
 var isRedactable = (u) => hasProperty(u, symbolRedactable);
 function redact(u) {
@@ -527,7 +532,7 @@ var emptyContext = {
   }
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Formatter.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Formatter.js
 function format(input, options) {
   const space = options?.space ?? 0;
   const ancestors = new WeakSet;
@@ -698,7 +703,7 @@ function isJsonPrimitiveWrapper(object) {
   return false;
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Inspectable.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Inspectable.js
 var NodeInspectSymbol = /* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom");
 var toJson = (input) => {
   try {
@@ -739,7 +744,7 @@ var BaseProto = {
   }
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/stackTraceLimit.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/stackTraceLimit.js
 var isStackTraceLimitWritable = () => {
   const desc = Object.getOwnPropertyDescriptor(Error, "stackTraceLimit");
   if (desc === undefined) {
@@ -755,7 +760,7 @@ var setStackTraceLimit = (value) => {
   }
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Utils.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Utils.js
 class SingleShotGen {
   constructor(self) {
     this.value = self;
@@ -797,7 +802,7 @@ var pickInternalCall = () => {
 };
 var internalCall = /* @__PURE__ */ pickInternalCall();
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/record.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/record.js
 function assignProperty(self, key, value) {
   if (key === "__proto__") {
     Object.defineProperty(self, key, {
@@ -822,7 +827,7 @@ function assignProperties(self, source) {
   }
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/core.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/core.js
 var EffectTypeId = `~effect/Effect`;
 var ExitTypeId = `~effect/Exit`;
 var effectVariance = {
@@ -862,11 +867,10 @@ var StructuralProto = {
   },
   [symbol2](that) {
     const selfKeys = Object.keys(this);
-    const thatKeys = Object.keys(that);
-    if (selfKeys.length !== thatKeys.length)
+    if (selfKeys.length !== Object.keys(that).length)
       return false;
-    for (let i = 0;i < selfKeys.length; i++) {
-      if (selfKeys[i] !== thatKeys[i] || !equals(this[selfKeys[i]], that[selfKeys[i]])) {
+    for (const key of selfKeys) {
+      if (!Object.prototype.propertyIsEnumerable.call(that, key) || !equals(this[key], that[key])) {
         return false;
       }
     }
@@ -1237,13 +1241,13 @@ var done = (value) => {
   return exitFail(Done(value));
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Effectable.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Effectable.js
 var Prototype2 = (options) => makePrimitiveProto({
   op: options.label,
   [evaluate]: options.evaluate
 });
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/option.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/option.js
 var TypeId = "~effect/Option";
 var CommonProto = {
   [TypeId]: {
@@ -1309,7 +1313,7 @@ var SomeImpl = function(value) {
 SomeImpl.prototype = SomeProto;
 var some = (value) => new SomeImpl(value);
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/result.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/result.js
 var TypeId2 = "~effect/Result";
 var CommonProto2 = {
   [TypeId2]: {
@@ -1375,7 +1379,7 @@ var SuccessImpl = function(success) {
 SuccessImpl.prototype = SuccessProto;
 var succeed = (success) => new SuccessImpl(success);
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Order.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Order.js
 function make(compare) {
   return (self, that) => self === that ? 0 : compare(self, that);
 }
@@ -1392,7 +1396,7 @@ var Number2 = /* @__PURE__ */ make((self, that) => {
 var mapInput = /* @__PURE__ */ dual(2, (self, f) => make((b1, b2) => self(f(b1), f(b2))));
 var isGreaterThan = (O) => dual(2, (self, that) => O(self, that) === 1);
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Option.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Option.js
 var none2 = () => none;
 var some2 = some;
 var isNone2 = isNone;
@@ -1409,7 +1413,7 @@ var getOrUndefined = /* @__PURE__ */ getOrElse(constUndefined);
 var map = /* @__PURE__ */ dual(2, (self, f) => isNone2(self) ? none2() : some2(f(self.value)));
 var flatMap = /* @__PURE__ */ dual(2, (self, f) => isNone2(self) ? none2() : f(self.value));
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Context.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Context.js
 var ServiceTypeId = "~effect/Context/Service";
 var Service = function() {
   function KeyClass() {}
@@ -1628,13 +1632,13 @@ var mergeAll = (...ctxs) => {
 };
 var Reference = Service;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/array.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/array.js
 var isArrayNonEmpty = (self) => self.length > 0;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/count.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/count.js
 var normalize = (n) => n > 0 ? Math.floor(n) : 0;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Result.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Result.js
 var succeed2 = succeed;
 var fail2 = fail;
 var isFailure2 = isFailure;
@@ -1651,7 +1655,7 @@ var getOrThrowWith = /* @__PURE__ */ dual(2, (self, onFailure) => {
 });
 var getOrThrow = /* @__PURE__ */ getOrThrowWith(identity);
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Array.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Array.js
 var Array2 = globalThis.Array;
 var fromIterable = (collection) => Array2.isArray(collection) ? collection : Array2.from(collection);
 var append = /* @__PURE__ */ dual(2, (self, last) => [...self, last]);
@@ -1671,7 +1675,7 @@ var empty2 = () => [];
 var of = (a) => [a];
 var map2 = /* @__PURE__ */ dual(2, (self, f) => self.map(f));
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Duration.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Duration.js
 var TypeId4 = "~effect/Duration";
 var bigint0 = /* @__PURE__ */ BigInt(0);
 var bigint1 = /* @__PURE__ */ BigInt(1);
@@ -1987,7 +1991,7 @@ var Equivalence = (self, that) => matchPair(self, that, {
 });
 var equals2 = /* @__PURE__ */ dual(2, (self, that) => Equivalence(self, that));
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Scheduler.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Scheduler.js
 var Scheduler = /* @__PURE__ */ Reference("effect/Scheduler", {
   fiberCached: true,
   defaultValue: () => new MixedScheduler
@@ -2104,18 +2108,18 @@ var PreventSchedulerYield = /* @__PURE__ */ Reference("effect/Scheduler/PreventS
   defaultValue: () => false
 });
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Data.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Data.js
 var Error3 = Error2;
 var TaggedError2 = TaggedError;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/encoding/EncodingError.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/encoding/EncodingError.js
 var EncodingErrorTypeId = "~effect/encoding/EncodingError";
 
 class EncodingError extends (/* @__PURE__ */ TaggedError2("EncodingError")) {
   [EncodingErrorTypeId] = EncodingErrorTypeId;
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/encoding/Hex.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/encoding/Hex.js
 var random2 = (length) => {
   switch (length) {
     case 16:
@@ -2149,8 +2153,13 @@ var random32 = () => {
   const d = randomWord();
   return String.fromCharCode(hexCharCodes[a >>> 28], hexCharCodes[a >>> 24 & 15], hexCharCodes[a >>> 20 & 15], hexCharCodes[a >>> 16 & 15], hexCharCodes[a >>> 12 & 15], hexCharCodes[a >>> 8 & 15], hexCharCodes[a >>> 4 & 15], hexCharCodes[a & 15], hexCharCodes[b >>> 28], hexCharCodes[b >>> 24 & 15], hexCharCodes[b >>> 20 & 15], hexCharCodes[b >>> 16 & 15], hexCharCodes[b >>> 12 & 15], hexCharCodes[b >>> 8 & 15], hexCharCodes[b >>> 4 & 15], hexCharCodes[b & 15], hexCharCodes[c >>> 28], hexCharCodes[c >>> 24 & 15], hexCharCodes[c >>> 20 & 15], hexCharCodes[c >>> 16 & 15], hexCharCodes[c >>> 12 & 15], hexCharCodes[c >>> 8 & 15], hexCharCodes[c >>> 4 & 15], hexCharCodes[c & 15], hexCharCodes[d >>> 28], hexCharCodes[d >>> 24 & 15], hexCharCodes[d >>> 20 & 15], hexCharCodes[d >>> 16 & 15], hexCharCodes[d >>> 12 & 15], hexCharCodes[d >>> 8 & 15], hexCharCodes[d >>> 4 & 15], hexCharCodes[d & 15]);
 };
+var hexCodes = /* @__PURE__ */ new Uint8Array(256).fill(255);
+for (let i = 0;i < 16; i++) {
+  hexCodes[/* @__PURE__ */ "0123456789abcdef".charCodeAt(i)] = i;
+  hexCodes[/* @__PURE__ */ "0123456789ABCDEF".charCodeAt(i)] = i;
+}
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Tracer.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Tracer.js
 var ParentSpanKey = "effect/Tracer/ParentSpan";
 
 class ParentSpan extends (/* @__PURE__ */ Service()(ParentSpanKey, {
@@ -2238,10 +2247,10 @@ class NativeSpan {
   }
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/metric.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/metric.js
 var FiberRuntimeMetricsKey = "effect/Metric/FiberRuntimeMetrics";
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/references.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/references.js
 var CurrentStackFrame = /* @__PURE__ */ Reference("effect/References/CurrentStackFrame", {
   fiberCached: true,
   defaultValue: constUndefined
@@ -2277,7 +2286,7 @@ var CurrentLogSpans = /* @__PURE__ */ Reference("effect/References/CurrentLogSpa
   defaultValue: () => []
 });
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/tracer.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/tracer.js
 var makeStackCleaner = (line) => (stack) => {
   let cache;
   return () => {
@@ -2295,7 +2304,7 @@ var makeStackCleaner = (line) => (stack) => {
   };
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/effect.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/effect.js
 class Interrupt extends ReasonBase {
   constructor(fiberId, annotations = constEmptyAnnotations) {
     super("Interrupt", annotations, "Interrupted");
@@ -2546,6 +2555,7 @@ class FiberImpl {
     this._children = undefined;
     this._interruptedCause = undefined;
     this._yielded = undefined;
+    this._autoYielded = false;
     this._running = false;
     this._deferredInterrupt = false;
     this._parent = undefined;
@@ -2660,8 +2670,10 @@ class FiberImpl {
     const prevRunning = this._running;
     this._running = true;
     let yielding = false;
+    let resuming = this._autoYielded;
+    this._autoYielded = false;
     let current = effect;
-    this.currentOpCount = 0;
+    this.currentOpCount = resuming ? 1 : 0;
     try {
       while (true) {
         try {
@@ -2671,12 +2683,13 @@ class FiberImpl {
           }
           this.currentOpCount++;
           const cache = this.cache;
-          if (!yielding && !cache.preventYield && cache.scheduler.shouldYield(this)) {
+          if (!resuming && !yielding && !cache.preventYield && cache.scheduler.shouldYield(this)) {
             yielding = true;
-            const prev = current;
-            current = flatMap2(yieldNow, () => prev);
+            current = this.yieldNow(current, 0, true);
+          } else {
+            resuming = false;
+            current = cache.tracerContext ? cache.tracerContext(current, this) : current[evaluate](this);
           }
-          current = cache.tracerContext ? cache.tracerContext(current, this) : current[evaluate](this);
           if (current === Yield) {
             const yielded = this._yielded;
             if (ExitTypeId in yielded) {
@@ -2733,6 +2746,18 @@ class FiberImpl {
   yieldWith(value) {
     this._yielded = value;
     return Yield;
+  }
+  yieldNow(effect, priority = 0, automatic = false) {
+    let resumed = false;
+    this.currentDispatcher.scheduleTask(() => {
+      if (resumed)
+        return;
+      this._autoYielded = automatic;
+      this.evaluate(effect);
+    }, priority);
+    return this.yieldWith(() => {
+      resumed = true;
+    });
   }
   children() {
     return this._children ??= new Set;
@@ -2883,15 +2908,7 @@ var fromResult = /* @__PURE__ */ match2({
 var yieldNowWith = /* @__PURE__ */ makePrimitive({
   op: "Yield",
   [evaluate](fiber) {
-    let resumed = false;
-    fiber.currentDispatcher.scheduleTask(() => {
-      if (resumed)
-        return;
-      fiber.evaluate(exitVoid);
-    }, this[args] ?? 0);
-    return fiber.yieldWith(() => {
-      resumed = true;
-    });
+    return fiber.yieldNow(exitVoid, this[args] ?? 0);
   }
 });
 var yieldNow = /* @__PURE__ */ yieldNowWith(0);
@@ -3207,8 +3224,9 @@ var raceAllFirst = (all, options) => withFiber((parent) => {
         const isWinner = !done;
         done = true;
         resume(exit);
-        if (isWinner && options?.onWinner) {
-          options.onWinner({
+        if (isWinner) {
+          interruptRaceLosers(fibers, parent);
+          options?.onWinner?.({
             fiber,
             index,
             parentFiber: parent
@@ -3218,6 +3236,12 @@ var raceAllFirst = (all, options) => withFiber((parent) => {
     }
   });
 });
+var interruptRaceLosers = (fibers, parent) => {
+  const annotations = fiberStackAnnotations(parent);
+  for (const fiber of fibers) {
+    fiber.interruptUnsafe(parent.id, annotations);
+  }
+};
 var raceFirst = /* @__PURE__ */ dual((args) => isEffect(args[1]), (self, that, options) => raceAllFirst([self, that], options));
 var flatMap2 = /* @__PURE__ */ dual(2, (self, f) => new ContImpl(self, andThenCont, f));
 var effectIsExit = (effect) => effect[ExitTypeId] !== undefined;
@@ -4407,7 +4431,7 @@ function interruptChildrenPatch() {
   fiberMiddleware.interruptChildren ??= fiberInterruptChildren;
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Cause.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Cause.js
 var isCause2 = isCause;
 var isFailReason2 = isFailReason;
 var isDieReason2 = isDieReason;
@@ -4425,7 +4449,7 @@ var done2 = done;
 var UnknownError2 = UnknownError;
 var reasonAnnotations2 = reasonAnnotations;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Exit.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Exit.js
 var succeed4 = exitSucceed;
 var failCause2 = exitFailCause;
 var fail5 = exitFail;
@@ -4433,7 +4457,7 @@ var void_2 = exitVoid;
 var isSuccess3 = exitIsSuccess;
 var isFailure3 = exitIsFailure;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Deferred.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Deferred.js
 var TypeId5 = "~effect/Deferred";
 var DeferredProto = {
   [TypeId5]: {
@@ -4483,7 +4507,7 @@ var doneUnsafe = (self, effect) => {
   return true;
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Scope.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Scope.js
 var Scope = scopeTag;
 var makeUnsafe3 = scopeMakeUnsafe;
 var provide = provideScope;
@@ -4492,7 +4516,7 @@ var addFinalizer2 = scopeAddFinalizer;
 var forkUnsafe2 = scopeForkUnsafe;
 var close = scopeClose;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Layer.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Layer.js
 var TypeId6 = "~effect/Layer";
 var MemoMapTypeId = "~effect/Layer/MemoMap";
 var makeMemoMapEntry = (memoMap, layer) => {
@@ -4612,10 +4636,10 @@ var mergeAll2 = (...layers) => fromBuildMemo((memoMap, scope) => mergeAllEffect(
 var provideWith = (self, that, f) => fromBuildMemo((memoMap, scope) => flatMap2(Array.isArray(that) ? mergeAllEffect(that, memoMap, scope) : that.build(memoMap, scope), (context) => self.build(memoMap, scope).pipe(provideContext(context), map3((merged) => f(merged, context)))));
 var provideMerge = /* @__PURE__ */ dual(2, (self, that) => provideWith(self, that, (self, that) => merge(that, self)));
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Clock.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Clock.js
 var currentTimeMillis2 = currentTimeMillis;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Pull.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Pull.js
 var catchDone = /* @__PURE__ */ dual(2, (effect, f) => catchCauseFilter(effect, filterDoneLeftover, (l) => f(l)));
 var isDoneCause = (cause) => cause.reasons.some(isDoneFailure);
 var isDoneFailure = (failure) => failure._tag === "Fail" && isDone2(failure.error);
@@ -4649,11 +4673,11 @@ var matchEffect2 = /* @__PURE__ */ dual(2, (self, options) => matchCauseEffect(s
   }
 }));
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/layer.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/layer.js
 var provideLayer = (self, layer, options) => scopedWith((scope) => flatMap2(options?.local ? buildWithMemoMap(layer, makeMemoMapUnsafe(), scope) : buildWithScope(layer, scope), (context) => provideContext(self, context)));
 var provide2 = /* @__PURE__ */ dual((args) => isEffect(args[0]), (self, source, options) => isContext(source) ? provideContext(self, source) : provideLayer(self, Array.isArray(source) ? mergeAll2(...source) : source, options));
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Effect.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Effect.js
 var isEffect2 = isEffect;
 var all2 = all;
 var forEach2 = forEach;
@@ -4751,12 +4775,22 @@ var flatMapEager2 = flatMapEager;
 var catchEager2 = catchEager;
 var fnUntracedEager2 = fnUntracedEager;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Runtime.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Runtime.js
+class InterruptExitCode extends (/* @__PURE__ */ Service()("effect/Runtime/InterruptExitCode")) {
+}
 var defaultTeardown = (exit, onExit) => {
   if (isSuccess3(exit))
     return onExit(0);
-  if (hasInterruptsOnly2(exit.cause))
-    return onExit(130);
+  if (hasInterruptsOnly2(exit.cause)) {
+    let code = -Infinity;
+    for (const reason of exit.cause.reasons) {
+      const annotated = getOrUndefined2(reasonAnnotations2(reason), InterruptExitCode);
+      if (annotated === undefined)
+        return onExit(130);
+      code = Math.max(code, annotated);
+    }
+    return onExit(code);
+  }
   return onExit(getErrorExitCode(squash(exit.cause)));
 };
 var makeRunMain = (f) => dual((args) => isEffect2(args[0]), (effect, options) => {
@@ -4802,7 +4836,7 @@ var getErrorReported = (u) => {
   return true;
 };
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/NodeRuntime.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/NodeRuntime.js
 var runMain = /* @__PURE__ */ makeRunMain(({
   fiber,
   teardown
@@ -4825,9 +4859,9 @@ var runMain = /* @__PURE__ */ makeRunMain(({
   process.on("SIGTERM", onSigint);
 });
 
-// node_modules/.bun/@effect+platform-node@4.1.2+22a1c27d4b1c9267/node_modules/@effect/platform-node/dist/NodeRuntime.js
+// node_modules/.bun/@effect+platform-node@4.1.4+a4fcee238fd47cef/node_modules/@effect/platform-node/dist/NodeRuntime.js
 var runMain2 = runMain;
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/BigInt.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/BigInt.js
 var BigInt2 = globalThis.BigInt;
 var toNumber = (b) => {
   if (b > BigInt2(Number.MAX_SAFE_INTEGER) || b < BigInt2(Number.MIN_SAFE_INTEGER)) {
@@ -4836,7 +4870,7 @@ var toNumber = (b) => {
   return some2(Number(b));
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/ByteSize.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/ByteSize.js
 var bigint03 = /* @__PURE__ */ BigInt(0);
 var bigint12 = /* @__PURE__ */ BigInt(1);
 var decimalBase = /* @__PURE__ */ BigInt(1000);
@@ -4971,13 +5005,13 @@ var fromInputUnsafe2 = (input) => {
 };
 var bytes = (value) => typeof value === "bigint" ? fromInputUnsafe2(value) : fromNumber(value);
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Fiber.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Fiber.js
 var join = fiberJoin;
 var interrupt3 = fiberInterrupt;
 var getCurrent = getCurrentFiber;
 var runIn = fiberRunIn;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/glob.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/glob.js
 var maxExpansions = 1e4;
 var maxExpandedLength = 2 ** 22;
 var maxBraceDepth = 64;
@@ -5663,7 +5697,7 @@ var walk = /* @__PURE__ */ fnUntraced2(function* (fs, compiled, options) {
   })), _await(failed));
 });
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/PlatformError.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/PlatformError.js
 var TypeId7 = "~effect/PlatformError";
 
 class BadArgument extends (/* @__PURE__ */ TaggedError2("BadArgument")) {
@@ -5699,10 +5733,10 @@ class PlatformError extends (/* @__PURE__ */ TaggedError2("PlatformError")) {
 var systemError = (options) => new PlatformError(new SystemError(options));
 var badArgument = (options) => new PlatformError(new BadArgument(options));
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Latch.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Latch.js
 var makeUnsafe4 = makeLatchUnsafe;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/MutableRef.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/MutableRef.js
 var TypeId8 = "~effect/MutableRef";
 var MutableRefProto = {
   [TypeId8]: TypeId8,
@@ -5720,7 +5754,7 @@ var make7 = (value) => {
   return ref;
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/MutableList.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/MutableList.js
 var Empty = /* @__PURE__ */ Symbol.for("effect/MutableList/Empty");
 var make8 = () => ({
   head: undefined,
@@ -5792,6 +5826,32 @@ var takeN = (self, n) => {
   clear(self);
   return array;
 };
+var takeNVoid = (self, n) => {
+  n = normalize(n);
+  if (n <= 0 || !self.head)
+    return;
+  n = Math.min(n, self.length);
+  if (n === self.length && self.head?.offset === 0 && !self.head.next) {
+    clear(self);
+    return;
+  }
+  let count = 0;
+  let chunk = self.head;
+  while (chunk) {
+    const size = chunk.array.length - chunk.offset;
+    if (count + size > n) {
+      chunk.offset += n - count;
+      self.head = chunk;
+      self.length -= n;
+      compactHead(self);
+      return;
+    }
+    count += size;
+    chunk = chunk.next;
+  }
+  clear(self);
+  return;
+};
 var take = (self) => {
   if (!self.head)
     return Empty;
@@ -5812,7 +5872,7 @@ var take = (self) => {
   return message;
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Queue.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Queue.js
 var TypeId9 = "~effect/Queue";
 var EnqueueTypeId = "~effect/Queue/Enqueue";
 var DequeueTypeId = "~effect/Queue/Dequeue";
@@ -5860,13 +5920,18 @@ var offerUnsafe = (self, message) => {
   if (self.state._tag !== "Open") {
     return false;
   } else if (self.messages.length >= self.capacity) {
-    if (self.strategy === "sliding") {
-      take(self.messages);
+    if (self.capacity <= 0 && self.state.takers.size > (self.strategy === "sliding" ? 0 : self.messages.length)) {
       append2(self.messages, message);
-      return true;
-    } else if (self.capacity <= 0 && self.state.takers.size > 0) {
-      append2(self.messages, message);
+      if (self.strategy === "sliding") {
+        takeNVoid(self.messages, self.messages.length - self.state.takers.size);
+      }
       releaseTakers(self);
+      return true;
+    } else if (self.strategy === "sliding") {
+      if (self.capacity > 0) {
+        take(self.messages);
+        append2(self.messages, message);
+      }
       return true;
     }
     return false;
@@ -6092,7 +6157,7 @@ var finalize = (self, exit) => {
   openState.awaiters.clear();
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Channel.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Channel.js
 var TypeId10 = "~effect/Channel";
 var isChannel = (u) => hasProperty(u, TypeId10);
 var ChannelProto = {
@@ -6294,7 +6359,7 @@ var runFold = /* @__PURE__ */ dual(3, (self, initial, f) => suspend2(() => {
 }));
 var toPullScoped = (self, scope) => toTransform(self)(done2(), scope);
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/stream.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/stream.js
 var TypeId11 = "~effect/Stream";
 var streamVariance = {
   _R: identity,
@@ -6312,7 +6377,7 @@ Stream.prototype = {
 };
 var fromChannel = (channel) => new Stream(channel);
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Sink.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Sink.js
 var TypeId12 = "~effect/Sink";
 var endVoid = /* @__PURE__ */ succeed6([undefined]);
 var sinkVariance = {
@@ -6349,7 +6414,7 @@ var forEachArray = (f) => fromTransform2((upstream) => upstream.pipe(flatMap3(f)
 }), catchDone(() => endVoid)));
 var unwrap2 = (effect) => fromChannel2(unwrap(map5(effect, toChannel)));
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/rcRef.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/rcRef.js
 var TypeId13 = "~effect/RcRef";
 var stateEmpty = {
   _tag: "Empty"
@@ -6487,11 +6552,11 @@ var release = (self, state) => {
   return void_3;
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/RcRef.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/RcRef.js
 var make11 = make10;
 var get3 = get2;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Stream.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Stream.js
 var TypeId14 = "~effect/Stream";
 var isStream = (u) => hasProperty(u, TypeId14);
 var fromChannel3 = fromChannel;
@@ -6545,7 +6610,7 @@ var runCollect = (self) => runFold(self.channel, () => [], (acc, chunk) => {
 var runDrain2 = (self) => runDrain(self.channel);
 var mkString = (self) => runFold(self.channel, () => "", (acc, chunk) => acc + chunk.join(""));
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/FileSystem.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/FileSystem.js
 var TypeId15 = "~effect/FileSystem";
 var FileSystem = /* @__PURE__ */ Service("effect/FileSystem");
 var make12 = (impl) => FileSystem.of({
@@ -6605,7 +6670,7 @@ var FileTypeId = "~effect/FileSystem/File";
 class WatchBackend extends (/* @__PURE__ */ Service()("effect/FileSystem/WatchBackend")) {
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Path.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Path.js
 var TypeId16 = "~effect/Path";
 var Path = /* @__PURE__ */ Service("effect/Path");
 var make13 = (impl) => Path.of({
@@ -6621,7 +6686,7 @@ var make13 = (impl) => Path.of({
   }
 });
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/schema/annotations.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/schema/annotations.js
 function resolve(ast) {
   return ast.checks ? ast.checks[ast.checks.length - 1].annotations : ast.annotations;
 }
@@ -6635,15 +6700,18 @@ var getExpected = /* @__PURE__ */ memoize((ast) => {
   return ast.getExpected(getExpected);
 });
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/schema/parser.js
-var missing = /* @__PURE__ */ Symbol();
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/schema/parser.js
+var missing = /* @__PURE__ */ Symbol.for("effect/schema/parser/missing");
 var succeed8 = succeed4;
 var missingExit = /* @__PURE__ */ succeed8(missing);
-var sameExit = /* @__PURE__ */ succeed8(missing);
+var sameExit = /* @__PURE__ */ Object.assign(/* @__PURE__ */ succeed8(missing), {
+  [missing]: true
+});
+var isSameExit = (result) => result[missing] === true;
 var toOption = (value) => value === missing ? none2() : some2(value);
 var fromOptionExit = (option) => option._tag === "None" ? missingExit : succeed8(option.value);
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/SchemaIssue.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/SchemaIssue.js
 var TypeId17 = "~effect/SchemaIssue/Issue";
 function isIssue(u) {
   return hasProperty(u, TypeId17) && u[TypeId17] === TypeId17;
@@ -6882,7 +6950,7 @@ function findMessage(issue) {
     return message;
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/schema/cause.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/schema/cause.js
 function getSchemaIssue(cause) {
   let issue;
   for (const reason of cause.reasons) {
@@ -6903,7 +6971,24 @@ function getSchemaIssueOrThrow(cause, message) {
   return issue;
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/encoding/Base64.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/base64.js
+var decodeNative = (str, decodedLength, options) => {
+  if (str.length < 128)
+    return;
+  const NativeUint8Array = Uint8Array;
+  if (typeof NativeUint8Array.fromBase64 !== "function")
+    return;
+  try {
+    const bytes = NativeUint8Array.fromBase64(str, options);
+    return bytes.length === decodedLength ? bytes : null;
+  } catch {
+    return null;
+  }
+};
+var stripCrlf = (str) => str.indexOf(`
+`) === -1 && str.indexOf("\r") === -1 ? str : str.replace(/[\n\r]/g, "");
+
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/encoding/Base64.js
 var encode = (input) => encodeBytes(typeof input === "string" ? encoder.encode(input) : input);
 var decode = (str) => {
   const stripped = stripCrlf(str);
@@ -6925,9 +7010,24 @@ var decode = (str) => {
       message: "Found a '=' character, but it is not at the end"
     }));
   }
+  const missingOctets = stripped.endsWith("==") ? 2 : stripped.endsWith("=") ? 1 : 0;
+  const decodedLength = 3 * (length / 4) - missingOctets;
+  const native = decodeNative(stripped, decodedLength, undefined);
+  if (native)
+    return succeed2(native);
+  if (native === null) {
+    const invalid = invalidCharacter.exec(stripped);
+    if (invalid !== null) {
+      return fail2(new EncodingError({
+        kind: "Decode",
+        module: "Base64",
+        input: stripped,
+        message: `Invalid character ${invalid[0]}`
+      }));
+    }
+  }
   try {
-    const missingOctets = stripped.endsWith("==") ? 2 : stripped.endsWith("=") ? 1 : 0;
-    const result = new Uint8Array(3 * (length / 4) - missingOctets);
+    const result = new Uint8Array(decodedLength);
     for (let i = 0, j = 0;i < length; i += 4, j += 3) {
       const buffer = getCode(stripped.charCodeAt(i)) << 18 | getCode(stripped.charCodeAt(i + 1)) << 12 | getCode(stripped.charCodeAt(i + 2)) << 6 | getCode(stripped.charCodeAt(i + 3));
       result[j] = buffer >> 16;
@@ -7000,11 +7100,13 @@ var encodeLong = (bytes) => {
   return decoder.decode(result);
 };
 var encoder = /* @__PURE__ */ new TextEncoder;
-var decoder = /* @__PURE__ */ new TextDecoder;
-var stripCrlf = (str) => str.replace(/[\n\r]/g, "");
+var decoder = /* @__PURE__ */ new TextDecoder("utf-8", {
+  ignoreBOM: true
+});
 var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 var alphabetCodes = /* @__PURE__ */ encoder.encode(alphabet);
 var paddingCode = 61;
+var invalidCharacter = /[^A-Za-z0-9+/=]/;
 var codes = /* @__PURE__ */ new Uint8Array(123).fill(255);
 for (let i = 0;i < alphabet.length; i++)
   codes[/* @__PURE__ */ alphabet.charCodeAt(i)] = i;
@@ -7016,7 +7118,7 @@ var getCode = (charCode) => {
   return codes[charCode];
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/SchemaGetter.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/SchemaGetter.js
 var makeGetter = (fields) => Object.assign(Object.create(Prototype), fields);
 var passthrough_ = /* @__PURE__ */ makeGetter({
   _tag: "Passthrough"
@@ -7073,7 +7175,7 @@ function decodeBase64() {
   }, input, options)));
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/schema/content.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/schema/content.js
 var ContentTypeId = /* @__PURE__ */ Symbol.for("~effect/Schema/content");
 function setContent(operation, content) {
   Object.defineProperty(operation, ContentTypeId, {
@@ -7082,7 +7184,7 @@ function setContent(operation, content) {
   return operation;
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/SchemaTransformation.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/SchemaTransformation.js
 var TypeId18 = "~effect/SchemaTransformation/Transformation";
 var Transformation = class extends Class {
   [TypeId18] = TypeId18;
@@ -7132,7 +7234,7 @@ function fromJsonString(options) {
   }));
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/SchemaAST.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/SchemaAST.js
 function makeGuard(tag) {
   return (ast) => ast._tag === tag;
 }
@@ -7460,7 +7562,8 @@ var Objects = class extends ASTNodeImpl {
         properties = ast.propertySignatures.map((ps) => ({
           parser: compileField(ps.type),
           name: ps.name,
-          type: ps.type
+          type: ps.type,
+          ownOnly: requiresOwnProperty(ps.name)
         }));
         indexes = indexCount ? ast.indexSignatures.map((is) => ({
           is,
@@ -7476,7 +7579,7 @@ var Objects = class extends ASTNodeImpl {
         if (exitValue._tag === "Failure") {
           return wrapPropertyKeyIssue(s, ast, key, exitValue) ?? void_2;
         }
-        const value = exitValue === sameExit ? inputValue : exitValue[args];
+        const value = isSameExit(exitValue) ? inputValue : exitValue[args];
         if (k2 !== missing && value !== missing) {
           if (hasProperties && (expectedKeys.has(key) || expectedKeys.has(typeof k2 === "number" ? globalThis.String(k2) : k2)))
             return void_2;
@@ -7495,7 +7598,7 @@ var Objects = class extends ASTNodeImpl {
         if (exitKey._tag === "Failure") {
           return wrapPropertyKeyIssue(s, ast, key, exitKey) ?? void_2;
         }
-        const k2 = exitKey === sameExit ? key : exitKey[args];
+        const k2 = isSameExit(exitKey) ? key : exitKey[args];
         const inputValue = s.input[key];
         const result = index.parserValue(inputValue, s.options);
         return effectIsExit(result) ? finishIndex(s, key, k2, inputValue, result) : flatMap3(exit2(result), (exit) => finishIndex(s, key, k2, inputValue, exit));
@@ -7641,13 +7744,13 @@ var Objects = class extends ASTNodeImpl {
         for (let index = 0;index < props.length; index++) {
           const property = props[index];
           const name = property.name;
-          const hasKey = hasPropertySignature(record, name);
+          const hasKey = property.ownOnly ? Object.hasOwn(record, name) : (name in record);
           const value = hasKey ? record[name] : missing;
           const exit = property.parser(value, options);
           if (!effectIsExit(exit)) {
             return resume(state, index, exit);
           }
-          if (exit === sameExit) {
+          if (isSameExit(exit)) {
             if (hasKey)
               assignProperty(out, name, value);
             continue;
@@ -7690,7 +7793,7 @@ function stepProperty(s, p, exit) {
   if (exit._tag === "Failure") {
     return wrapPropertyKeyIssue(s, s.ast, p.name, exit);
   }
-  if (exit === sameExit)
+  if (isSameExit(exit))
     return;
   const value = exit[args];
   if (value !== missing) {
@@ -7713,7 +7816,7 @@ function stepProperty(s, p, exit) {
 }
 var parsePropertiesOptions = {
   onItem(s, p) {
-    if (!hasPropertySignature(s.input, p.name)) {
+    if (!(p.ownOnly ? Object.hasOwn(s.input, p.name) : (p.name in s.input))) {
       return p.parser(missing, s.options);
     }
     const value = s.input[p.name];
@@ -7847,7 +7950,9 @@ function collectSentinels(ast) {
 var candidateIndexCache = /* @__PURE__ */ new WeakMap;
 var emptyCandidates = /* @__PURE__ */ Object.freeze([]);
 var getRuntimeType = (input) => input === null ? "null" : Array.isArray(input) ? "array" : typeof input;
-var hasPropertySignature = (input, key) => key === "__proto__" ? Object.hasOwn(input, key) : (key in input);
+var objectPrototypeKeys = /* @__PURE__ */ new Set(Reflect.ownKeys(Object.prototype)).add("__proto__");
+var requiresOwnProperty = (key) => objectPrototypeKeys.has(typeof key === "number" ? globalThis.String(key) : key);
+var hasPropertySignature = (input, key) => Object.hasOwn(input, key) || (key in input) && !requiresOwnProperty(key);
 function getCandidateIndex(types) {
   let index = candidateIndexCache.get(types);
   if (index)
@@ -8104,10 +8209,8 @@ function parseUnionCandidates(ast, parser, candidates, input, options) {
 }
 function resumeUnion(eff, state) {
   return flatMapEager2(eff, (_) => {
-    if (state.out === sameExit)
-      return succeed6(state.input);
     if (state.out)
-      return state.out;
+      return isSameExit(state.out) ? succeed6(state.input) : state.out;
     return fail7(new AnyOf(state.ast, state.issues ?? [], state.input, state.options));
   });
 }
@@ -8459,7 +8562,7 @@ var toType = /* @__PURE__ */ memoizeIdempotent((ast) => {
     const checks = canPreserveEncodingChecks(ast) ? type.encodingChecks : isArrays(type) || isObjects(type) || isDeclaration(type) && type.typeParameters.length > 0 ? extractStructuralChecks(type.encodingChecks) : undefined;
     return copy(type, {
       encodingChecks: undefined,
-      checks: combineChecks(type.checks, checks)
+      checks: combineChecks(checks, type.checks)
     });
   }
   return type;
@@ -8648,7 +8751,7 @@ var StringTree = /* @__PURE__ */ new Declaration([], () => (input, ast, options)
 });
 var unknownToStringTree = /* @__PURE__ */ new Link(StringTree, /* @__PURE__ */ passthrough2());
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Brand.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Brand.js
 function nominal() {
   return Object.assign((input) => input, {
     option: (input) => some2(input),
@@ -8657,7 +8760,7 @@ function nominal() {
   });
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/process/ChildProcessSpawner.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/process/ChildProcessSpawner.js
 var ExitCode = /* @__PURE__ */ nominal();
 var ProcessId = /* @__PURE__ */ nominal();
 var HandleTypeId = "~effect/process/ChildProcessSpawner/ChildProcessHandle";
@@ -8690,7 +8793,7 @@ var make14 = (spawn) => {
 class ChildProcessSpawner extends (/* @__PURE__ */ Service()("effect/process/ChildProcessSpawner")) {
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/redacted.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/redacted.js
 var redactedRegistry = /* @__PURE__ */ new WeakMap;
 var value = (self) => {
   if (redactedRegistry.has(self)) {
@@ -8700,7 +8803,7 @@ var value = (self) => {
   }
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Redacted.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Redacted.js
 var TypeId20 = "~effect/Redacted";
 var isRedacted = (u) => hasProperty(u, TypeId20);
 var make15 = (value, options) => {
@@ -8732,7 +8835,7 @@ var Proto2 = {
 };
 var value2 = value;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/process/CommandLine.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/process/CommandLine.js
 class CommandLineError extends (/* @__PURE__ */ TaggedError2("CommandLineError")) {
 }
 var display = (words, options) => {
@@ -8926,7 +9029,7 @@ var parseTemplate = (texts, values) => {
   return succeed2(words);
 };
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/process/ChildProcess.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/process/ChildProcess.js
 var TypeId21 = "~effect/process/ChildProcess";
 var Proto3 = {
   .../* @__PURE__ */ Prototype2({
@@ -9002,11 +9105,11 @@ var shellScript = (templates, expressions) => {
   return script;
 };
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/NodeChildProcessSpawner.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/NodeChildProcessSpawner.js
 import * as NodeChildProcess from "node:child_process";
 import { PassThrough } from "node:stream";
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/internal/nodeChildProcessSpawner.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/internal/nodeChildProcessSpawner.js
 var buildSpawnOptions = (options, base, platform) => {
   const detached = options.detached ?? platform !== "win32";
   return {
@@ -9017,7 +9120,7 @@ var buildSpawnOptions = (options, base, platform) => {
   };
 };
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/internal/utils.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/internal/utils.js
 var handleErrnoException = (module, method) => (err, [path]) => {
   let reason = "Unknown";
   switch (err.code) {
@@ -9054,10 +9157,10 @@ var handleErrnoException = (module, method) => (err, [path]) => {
   });
 };
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/NodeSink.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/NodeSink.js
 import { finished } from "node:stream";
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/internal/stream.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/internal/stream.js
 var destroyStream = (stream, cleanup, onDestroyed) => {
   if (!("closed" in stream)) {
     cleanup();
@@ -9090,7 +9193,7 @@ var destroyStream = (stream, cleanup, onDestroyed) => {
   }
 };
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/NodeSink.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/NodeSink.js
 var fromWritable = (options) => fromChannel2(mapDone(fromWritableChannel(options), (_) => [_]));
 var fromWritableChannel = (options) => fromTransform((pull) => {
   const writable = options.evaluate();
@@ -9195,7 +9298,7 @@ var pullIntoWritable = (options) => withFiber2((fiber) => {
   })));
 });
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/NodeStream.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/NodeStream.js
 import { finished as finished2, Readable } from "node:stream";
 var fromReadable = (options) => fromChannel3(fromReadableChannel(options));
 var fromReadableChannel = (options) => fromTransform((_, scope) => readableToPullUnsafe({
@@ -9255,7 +9358,7 @@ var readableToPullUnsafe = (options) => {
 };
 var defaultOnError = (error) => new UnknownError2(error);
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/NodeChildProcessSpawner.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/NodeChildProcessSpawner.js
 var toError = (error) => error instanceof globalThis.Error ? error : new globalThis.Error(String(error));
 var toPlatformError = (method, error, command) => {
   const {
@@ -9682,11 +9785,7 @@ var make17 = /* @__PURE__ */ gen2(function* () {
         const cwd = yield* resolveWorkingDirectory(cmd.options);
         const env = resolveEnvironment(cmd.options);
         const stdio = buildStdioArray(stdinConfig, stdoutConfig, stderrConfig, resolvedAdditionalFds);
-        const [childProcess, exitSignal] = yield* acquireRelease2(spawn2(cmd, buildSpawnOptions(cmd.options, {
-          cwd,
-          env,
-          stdio
-        }, process.platform)), fnUntraced2(function* ([childProcess, exitSignal]) {
+        const releaseProcess = fnUntraced2(function* (childProcess, exitSignal) {
           const exited = yield* isDone3(exitSignal);
           if (exited) {
             const [code] = yield* _await(exitSignal);
@@ -9701,6 +9800,15 @@ var make17 = /* @__PURE__ */ gen2(function* () {
             return;
           }
           yield* ignore2(terminateProcessGroup(cmd, childProcess, exitSignal, cmd.options));
+        });
+        const inputScope = makeUnsafe3();
+        const [childProcess, exitSignal] = yield* acquireRelease2(spawn2(cmd, buildSpawnOptions(cmd.options, {
+          cwd,
+          env,
+          stdio
+        }, process.platform)), ([childProcess, exitSignal], exit) => all2([close(inputScope, exit), releaseProcess(childProcess, exitSignal)], {
+          concurrency: "unbounded",
+          discard: true
         }));
         const pid = ProcessId(childProcess.pid);
         if (cmd.options.detached !== false) {
@@ -9724,7 +9832,7 @@ var make17 = /* @__PURE__ */ gen2(function* () {
           return reref;
         });
         const inputFailure = makeUnsafe2();
-        const stdin = yield* setupChildStdin(cmd, childProcess, stdinConfig, inputFailure);
+        const stdin = yield* provide(inputScope)(setupChildStdin(cmd, childProcess, stdinConfig, inputFailure));
         const {
           all,
           stderr,
@@ -9733,7 +9841,7 @@ var make17 = /* @__PURE__ */ gen2(function* () {
         const {
           getInputFd,
           getOutputFd
-        } = yield* setupAdditionalFds(cmd, childProcess, resolvedAdditionalFds, inputFailure);
+        } = yield* provide(inputScope)(setupAdditionalFds(cmd, childProcess, resolvedAdditionalFds, inputFailure));
         const isRunning = map5(isDone3(exitSignal), (done) => !done);
         const exitCode = flatMap3(raceFirst2(_await(exitSignal), _await(inputFailure)), ([code, signal]) => {
           if (isDoneUnsafe(inputFailure)) {
@@ -9873,7 +9981,7 @@ var flattenCommand = (command) => {
   };
 };
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/NodeFileSystem.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/NodeFileSystem.js
 import * as Crypto from "node:crypto";
 import * as NFS from "node:fs";
 import * as OS from "node:os";
@@ -10030,7 +10138,10 @@ var makeFile = /* @__PURE__ */ (() => {
   const nodeStat = /* @__PURE__ */ effectify(NFS.fstat, /* @__PURE__ */ handleErrnoException("FileSystem", "stat"), /* @__PURE__ */ handleBadArgument("stat"));
   const nodeTruncate = /* @__PURE__ */ effectify(NFS.ftruncate, /* @__PURE__ */ handleErrnoException("FileSystem", "truncate"), /* @__PURE__ */ handleBadArgument("truncate"));
   const nodeSync = /* @__PURE__ */ effectify(NFS.fsync, /* @__PURE__ */ handleErrnoException("FileSystem", "sync"), /* @__PURE__ */ handleBadArgument("sync"));
-  const nodeWriteFactory = (method) => effectify(NFS.write, handleErrnoException("FileSystem", method), handleBadArgument(method));
+  const nodeWriteFactory = (method) => {
+    const write2 = effectify(NFS.write, handleErrnoException("FileSystem", method), handleBadArgument(method));
+    return (fd, buffer, position) => write2(fd, buffer, 0, buffer.length, position);
+  };
   const nodeWrite = /* @__PURE__ */ nodeWriteFactory("write");
   const nodeWriteAll = /* @__PURE__ */ nodeWriteFactory("writeAll");
 
@@ -10132,7 +10243,7 @@ var makeFile = /* @__PURE__ */ (() => {
     write(buffer) {
       return suspend2(() => {
         const position = this.position;
-        return flatMap3(this.append ? succeed6(undefined) : positionToNumber(position, "write"), (nodePosition) => map5(nodeWrite(this.fd, buffer, undefined, undefined, nodePosition), (bytesWritten) => {
+        return flatMap3(this.append ? succeed6(undefined) : positionToNumber(position, "write"), (nodePosition) => map5(nodeWrite(this.fd, buffer, nodePosition), (bytesWritten) => {
           if (!this.append) {
             this.position = position + BigInt(bytesWritten);
           }
@@ -10143,7 +10254,7 @@ var makeFile = /* @__PURE__ */ (() => {
     writeAllChunk(buffer) {
       return suspend2(() => {
         const position = this.position;
-        return flatMap3(this.append ? succeed6(undefined) : positionToNumber(position, "writeAll"), (nodePosition) => flatMap3(nodeWriteAll(this.fd, buffer, undefined, undefined, nodePosition), (bytesWritten) => {
+        return flatMap3(this.append ? succeed6(undefined) : positionToNumber(position, "writeAll"), (nodePosition) => flatMap3(nodeWriteAll(this.fd, buffer, nodePosition), (bytesWritten) => {
           if (bytesWritten === 0) {
             return fail7(systemError({
               module: "FileSystem",
@@ -10359,10 +10470,10 @@ var makeFileSystem = /* @__PURE__ */ map5(/* @__PURE__ */ serviceOption2(WatchBa
 }));
 var layer2 = /* @__PURE__ */ effect(FileSystem)(makeFileSystem);
 
-// node_modules/.bun/@effect+platform-node@4.1.2+22a1c27d4b1c9267/node_modules/@effect/platform-node/dist/NodeFileSystem.js
+// node_modules/.bun/@effect+platform-node@4.1.4+a4fcee238fd47cef/node_modules/@effect/platform-node/dist/NodeFileSystem.js
 var layer3 = layer2;
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/NodePath.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/NodePath.js
 import * as NodePath from "node:path";
 import * as NodeUrl from "node:url";
 var fileUrlOps = (windows) => ({
@@ -10400,10 +10511,10 @@ var layer4 = /* @__PURE__ */ succeed5(Path)(/* @__PURE__ */ make13({
   .../* @__PURE__ */ fileUrlOps(undefined)
 }));
 
-// node_modules/.bun/@effect+platform-node@4.1.2+22a1c27d4b1c9267/node_modules/@effect/platform-node/dist/NodePath.js
+// node_modules/.bun/@effect+platform-node@4.1.4+a4fcee238fd47cef/node_modules/@effect/platform-node/dist/NodePath.js
 var layer5 = layer4;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Stdio.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Stdio.js
 var TypeId22 = "~effect/Stdio";
 var Stdio = /* @__PURE__ */ Service(TypeId22);
 var make18 = (options) => ({
@@ -10414,7 +10525,7 @@ var make18 = (options) => ({
   ...options
 });
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/NodeStdio.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/NodeStdio.js
 var layer6 = /* @__PURE__ */ succeed5(Stdio, /* @__PURE__ */ make18({
   args: /* @__PURE__ */ sync2(() => process.argv.slice(2)),
   stdinIsTerminal: /* @__PURE__ */ sync2(() => process.stdin.isTTY === true),
@@ -10452,11 +10563,11 @@ var layer6 = /* @__PURE__ */ succeed5(Stdio, /* @__PURE__ */ make18({
   })
 }));
 
-// node_modules/.bun/@effect+platform-node@4.1.2+22a1c27d4b1c9267/node_modules/@effect/platform-node/dist/NodeStdio.js
+// node_modules/.bun/@effect+platform-node@4.1.4+a4fcee238fd47cef/node_modules/@effect/platform-node/dist/NodeStdio.js
 var layer7 = layer6;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/schema/interpreter.js
-var flatMapTransformation = (result, current, f) => result === sameExit ? f(current) : flatMapEager2(result, f);
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/schema/interpreter.js
+var flatMapTransformation = (result, current, f) => isSameExit(result) ? f(current) : flatMapEager2(result, f);
 function compileTransformation(transformation) {
   const apply = compileTransformationUnsafe(transformation);
   return (result, current, options) => {
@@ -10470,14 +10581,14 @@ function compileTransformation(transformation) {
 function compileTransformationUnsafe(transformation) {
   if (transformation._tag === "Middleware") {
     return (result, current, options) => {
-      const transformed = result === sameExit ? transformation.decode(succeed8(toOption(current)), options) : transformation.decode(mapEager2(result, toOption), options);
+      const transformed = isSameExit(result) ? transformation.decode(succeed8(toOption(current)), options) : transformation.decode(mapEager2(result, toOption), options);
       return fromOptionalEffect(transformed);
     };
   }
   const getter = transformation.decode;
   switch (getter._tag) {
     case "Passthrough":
-      return (result, current) => result === sameExit ? succeed8(current) : result;
+      return (result, current) => isSameExit(result) ? succeed8(current) : result;
     case "Transform": {
       const transform = (value) => value === missing ? missingExit : succeed8(getter.transform(value));
       return (result, current) => flatMapTransformation(result, current, transform);
@@ -10514,11 +10625,11 @@ function withDefault(ast, parser) {
     const result = defaultValue;
     if (effectIsExit(result) && result._tag === "Success") {
       const local = parser(result[args], options);
-      return local === sameExit ? result : local;
+      return isSameExit(local) ? result : local;
     }
     return flatMapEager2(wrapEncoding(ast, input, options, result), (value) => {
       const local = parser(value, options);
-      return local === sameExit ? succeed8(value) : local;
+      return isSameExit(local) ? succeed8(value) : local;
     });
   };
 }
@@ -10547,7 +10658,7 @@ function compile2(ast, compile, compileField, base, specialize) {
       if (encodingChecks && !options.disableChecks) {
         if (effectIsExit(result)) {
           if (result._tag === "Success") {
-            const output = result === sameExit ? input : result[args];
+            const output = isSameExit(result) ? input : result[args];
             if (input !== missing && output !== missing) {
               const issues = collectIssues(encodingChecks, input, undefined, ast, options);
               if (issues) {
@@ -10570,7 +10681,7 @@ function compile2(ast, compile, compileField, base, specialize) {
       if (checks && !options.disableChecks) {
         if (effectIsExit(result)) {
           if (result._tag === "Success") {
-            const value = result === sameExit ? input : result[args];
+            const value = isSameExit(result) ? input : result[args];
             if (value === missing)
               return result;
             const issues = collectIssues(checks, value, undefined, ast, options);
@@ -10613,7 +10724,7 @@ function compile2(ast, compile, compileField, base, specialize) {
         } else {
           result = flatMapEager2(result, (value) => {
             const nextResult = next(value, options);
-            return nextResult === sameExit ? succeed8(value) : nextResult;
+            return isSameExit(nextResult) ? succeed8(value) : nextResult;
           });
         }
       }
@@ -10621,17 +10732,17 @@ function compile2(ast, compile, compileField, base, specialize) {
     if (result._tag === "Success") {
       const value = result[args];
       const local = parseLocal(value, options);
-      return local === sameExit ? result : local;
+      return isSameExit(local) ? result : local;
     }
     result = wrapEncoding(ast, input, options, result);
     return flatMapEager2(result, (value) => {
       const local = parseLocal(value, options);
-      return local === sameExit ? succeed8(value) : local;
+      return isSameExit(local) ? succeed8(value) : local;
     });
   };
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/schema/compilerRegistry.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/schema/compilerRegistry.js
 var invalid3 = /* @__PURE__ */ Symbol();
 var cache = /* @__PURE__ */ new WeakMap;
 var compiler;
@@ -10733,7 +10844,7 @@ function resolve3(ast) {
   return entry;
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/SchemaParser.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/SchemaParser.js
 function makeEffect(schema) {
   const ast = schema.ast;
   let parser;
@@ -10781,7 +10892,7 @@ function run2(ast) {
   return runWithCompiler(normalCompiler, ast);
 }
 function parserResult(result, input) {
-  if (result === sameExit) {
+  if (isSameExit(result)) {
     return succeed6(input);
   }
   if (!effectIsExit(result)) {
@@ -10793,7 +10904,7 @@ function runWithCompiler(compiler, ast) {
   let parser;
   return (input, options) => {
     const result = (parser ??= compiler(ast))(input, options ?? defaultParseOptions);
-    if (result === sameExit) {
+    if (isSameExit(result)) {
       return succeed6(input);
     }
     if (!effectIsExit(result)) {
@@ -10874,7 +10985,7 @@ function makeClassSync(ast, input, options, construct) {
 var normalCompiler = (ast) => resolve3(ast).parser;
 var constructorCompiler = (ast) => resolve3(ast).makeEffect;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/schema/make.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/schema/make.js
 var TypeId23 = "~effect/Schema/Schema";
 var RebuildOptions = /* @__PURE__ */ Symbol();
 var SchemaProto = {
@@ -10934,7 +11045,7 @@ function make20(ast, options) {
   return self;
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/schema/toCodec.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/schema/toCodec.js
 function makeCodecDerivation(step, options) {
   const deriveBody = memoize((owner) => {
     const body = replaceContext(owner, undefined);
@@ -11047,13 +11158,13 @@ var toCodecStringTreeAST = /* @__PURE__ */ makeCodecDerivation((ast, recur) => t
   stopAt: isCodecArrayFromSingleLink
 });
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Struct.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Struct.js
 var lambda = (f) => f;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/internal/schemaError.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/internal/schemaError.js
 var SchemaErrorTypeId = "~effect/Schema/SchemaError";
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Schema.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Schema.js
 var TypeId24 = TypeId23;
 function declareConstructor() {
   return (typeParameters, run, annotations) => {
@@ -11496,7 +11607,7 @@ var TaggedError3 = (identifier) => {
 };
 var toCodecStringTree2 = toCodecStringTree;
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Terminal.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Terminal.js
 var TypeId25 = "~effect/Terminal";
 var QuitErrorTypeId = "~effect/Terminal/QuitError";
 
@@ -11511,13 +11622,11 @@ var make22 = (impl) => Terminal.of({
   [TypeId25]: TypeId25
 });
 
-// node_modules/.bun/@effect+platform-node-shared@4.1.2+edf248c88a527e3e/node_modules/@effect/platform-node-shared/dist/NodeTerminal.js
+// node_modules/.bun/@effect+platform-node-shared@4.1.4+72de0b2d9c666615/node_modules/@effect/platform-node-shared/dist/NodeTerminal.js
 import * as readline from "node:readline";
 var make23 = /* @__PURE__ */ fnUntraced2(function* (shouldQuit = defaultShouldQuit) {
-  const stdin = process.stdin;
-  const stdout = process.stdout;
   const lines = yield* make9();
-  let inputEnded = stdin.readableEnded;
+  let inputEnded = false;
   let readlineActive = false;
   const onStdinEnd = () => {
     inputEnded = true;
@@ -11525,10 +11634,22 @@ var make23 = /* @__PURE__ */ fnUntraced2(function* (shouldQuit = defaultShouldQu
       endUnsafe(lines);
     }
   };
-  stdin.once("end", onStdinEnd);
-  yield* addFinalizer3(() => sync2(() => stdin.off("end", onStdinEnd)));
+  let stdin;
+  const getStdin = () => {
+    if (stdin === undefined) {
+      stdin = process.stdin;
+      if (stdin.readableEnded) {
+        onStdinEnd();
+      } else {
+        stdin.once("end", onStdinEnd);
+      }
+    }
+    return stdin;
+  };
+  yield* addFinalizer3(() => sync2(() => stdin?.off("end", onStdinEnd)));
   const rlRef = yield* make11({
     acquire: acquireRelease2(sync2(() => {
+      const stdin = getStdin();
       const rl = readline.createInterface({
         input: stdin,
         escapeCodeTimeout: 50
@@ -11563,6 +11684,7 @@ var make23 = /* @__PURE__ */ fnUntraced2(function* (shouldQuit = defaultShouldQu
     idleTimeToLive: "10 millis"
   });
   const setRawMode = (enabled) => sync2(() => {
+    const stdin = getStdin();
     if (stdin.isTTY)
       stdin.setRawMode(enabled);
   });
@@ -11570,9 +11692,10 @@ var make23 = /* @__PURE__ */ fnUntraced2(function* (shouldQuit = defaultShouldQu
     acquire: acquireRelease2(setRawMode(true), () => setRawMode(false)),
     idleTimeToLive: "10 millis"
   });
-  const columns = sync2(() => stdout.columns ?? 0);
-  const rows = sync2(() => stdout.rows ?? 0);
+  const columns = sync2(() => process.stdout.columns ?? 0);
+  const rows = sync2(() => process.stdout.rows ?? 0);
   const size = gen2(function* () {
+    const stdout = process.stdout;
     const queue = yield* sliding(1);
     const onResize = () => offerUnsafe(queue, {
       columns: stdout.columns ?? 0,
@@ -11587,6 +11710,7 @@ var make23 = /* @__PURE__ */ fnUntraced2(function* (shouldQuit = defaultShouldQu
     return queue;
   });
   const readInput = gen2(function* () {
+    const stdin = getStdin();
     const queue = yield* make9();
     const handleKeypress = (s, k) => {
       const userInput = {
@@ -11628,7 +11752,7 @@ var make23 = /* @__PURE__ */ fnUntraced2(function* (shouldQuit = defaultShouldQu
     onSome: succeed6
   })), mapError2(() => new QuitError({}))));
   const display = (prompt) => uninterruptible2(callback2((resume) => {
-    stdout.write(prompt, (err) => isNullish(err) ? resume(void_3) : resume(fail7(badArgument({
+    process.stdout.write(prompt, (err) => isNullish(err) ? resume(void_3) : resume(fail7(badArgument({
       module: "Terminal",
       method: "display",
       description: "Failed to write prompt to stdout",
@@ -11650,12 +11774,12 @@ function defaultShouldQuit(input) {
   return key.name === "escape" || key.ctrl && (key.name === "c" || key.name === "d");
 }
 
-// node_modules/.bun/@effect+platform-node@4.1.2+22a1c27d4b1c9267/node_modules/@effect/platform-node/dist/NodeTerminal.js
+// node_modules/.bun/@effect+platform-node@4.1.4+a4fcee238fd47cef/node_modules/@effect/platform-node/dist/NodeTerminal.js
 var layer9 = layer8;
 
-// node_modules/.bun/@effect+platform-node@4.1.2+22a1c27d4b1c9267/node_modules/@effect/platform-node/dist/NodeServices.js
+// node_modules/.bun/@effect+platform-node@4.1.4+a4fcee238fd47cef/node_modules/@effect/platform-node/dist/NodeServices.js
 var layer10 = /* @__PURE__ */ provideMerge(layer, /* @__PURE__ */ mergeAll2(layer3, layer5, layer7, layer9));
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/ConfigProvider.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/ConfigProvider.js
 function makeValue(value) {
   return {
     _tag: "Value",
@@ -11758,7 +11882,7 @@ function trieNodeAt(root, path) {
   return node;
 }
 
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Config.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Config.js
 var TypeId26 = "~effect/Config";
 class ConfigError {
   _tag = "ConfigError";
@@ -11925,7 +12049,7 @@ function schema(codec, path) {
 function String6(name) {
   return schema(String5, name);
 }
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Console.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Console.js
 var Console = ConsoleRef;
 var consoleWith = (f) => withFiber((fiber) => f(fiber.getRef(Console)));
 var error = (...args) => consoleWith((console) => sync(() => {
@@ -11934,7 +12058,7 @@ var error = (...args) => consoleWith((console) => sync(() => {
 var log = (...args) => consoleWith((console) => sync(() => {
   console.log(...args);
 }));
-// node_modules/.bun/effect@4.1.2/node_modules/effect/dist/Logger.js
+// node_modules/.bun/effect@4.1.4/node_modules/effect/dist/Logger.js
 var LogToStderr2 = LogToStderr;
 // plugins/auto-memory/src/config.ts
 import { homedir } from "node:os";
