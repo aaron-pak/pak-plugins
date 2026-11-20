@@ -47,6 +47,16 @@ function relay(tool, input) {
     socket.on("error", (error) => done({ verdict: "tool_error", text: `mock relay: ${error.message}` }));
   });
 }
+var MODERN = "2026-07-28";
+var LEGACY = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
+var VERSION_KEY = "io.modelcontextprotocol/protocolVersion";
+var serverInfo = { name: spec.server, version: "0.0.0" };
+var cancelled = new Set;
+function answer(id, body) {
+  if (cancelled.delete(id))
+    return;
+  send({ jsonrpc: "2.0", id, ...body });
+}
 var rl = createInterface({ input: process.stdin });
 rl.on("line", (line) => void handle(line));
 async function handle(line) {
@@ -59,48 +69,92 @@ async function handle(line) {
     return;
   }
   const { id, method, params } = msg;
-  if (id === undefined)
+  if (id === undefined) {
+    const requestId = params?.["requestId"];
+    if (method === "notifications/cancelled" && (typeof requestId === "string" || typeof requestId === "number"))
+      cancelled.add(requestId);
     return;
+  }
+  const meta = params?.["_meta"];
+  const version = meta && typeof meta === "object" ? meta[VERSION_KEY] : undefined;
+  if (version === undefined || LEGACY.includes(version))
+    return legacy(id, method, params);
+  if (version !== MODERN) {
+    error(id, -32022, `Unsupported protocol version ${JSON.stringify(version)}`, {
+      supported: [MODERN, ...LEGACY],
+      requested: typeof version === "string" ? version : JSON.stringify(version)
+    });
+    return;
+  }
+  const reply = (result) => answer(id, {
+    result: { _meta: { "io.modelcontextprotocol/serverInfo": serverInfo }, resultType: "complete", ...result }
+  });
+  const list = (result) => reply({ ...result, ttlMs: 0, cacheScope: "private" });
   switch (method) {
-    case "initialize":
+    case "server/discover":
+      list({ supportedVersions: [MODERN, ...LEGACY], capabilities: { tools: {} } });
+      return;
+    case "subscriptions/listen":
       send({
         jsonrpc: "2.0",
-        id,
-        result: {
-          protocolVersion: typeof params?.protocolVersion === "string" ? params.protocolVersion : "2025-06-18",
-          capabilities: { tools: {} },
-          serverInfo: { name: spec.server, version: "0.0.0" }
-        }
+        method: "notifications/subscriptions/acknowledged",
+        params: { _meta: { "io.modelcontextprotocol/subscriptionId": id }, notifications: {} }
+      });
+      return;
+    case "tools/list":
+      list({ tools: spec.tools });
+      return;
+    case "tools/call":
+      reply(await call(params));
+      return;
+    case "resources/list":
+      list({ resources: [] });
+      return;
+    case "prompts/list":
+      list({ prompts: [] });
+      return;
+    default:
+      error(id, -32601, `Method not found: ${method}`);
+  }
+}
+async function legacy(id, method, params) {
+  const reply = (result) => answer(id, { result });
+  const asked = params?.["protocolVersion"];
+  switch (method) {
+    case "initialize":
+      reply({
+        protocolVersion: typeof asked !== "string" ? "2025-06-18" : LEGACY.includes(asked) ? asked : LEGACY[0],
+        capabilities: { tools: {} },
+        serverInfo
       });
       return;
     case "ping":
-      send({ jsonrpc: "2.0", id, result: {} });
+      reply({});
       return;
     case "tools/list":
-      send({ jsonrpc: "2.0", id, result: { tools: spec.tools } });
+      reply({ tools: spec.tools });
       return;
-    case "tools/call": {
-      const name = asText(params?.name);
-      if (!spec.tools.some((t) => t.name === name)) {
-        send({
-          jsonrpc: "2.0",
-          id,
-          result: { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true }
-        });
-        return;
-      }
-      const answer = await relay(name, params?.arguments ?? {});
-      const text = answer.verdict === "abort" ? "eval aborted by mock" : answer.text;
-      send({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text }], isError: answer.verdict !== "ok" } });
+    case "tools/call":
+      reply(await call(params));
       return;
-    }
     case "resources/list":
-      send({ jsonrpc: "2.0", id, result: { resources: [] } });
+      reply({ resources: [] });
       return;
     case "prompts/list":
-      send({ jsonrpc: "2.0", id, result: { prompts: [] } });
+      reply({ prompts: [] });
       return;
     default:
-      send({ jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } });
+      error(id, -32601, `Method not found: ${method}`);
   }
+}
+async function call(params) {
+  const name = asText(params?.["name"]);
+  if (!spec.tools.some((t) => t.name === name))
+    return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
+  const answer = await relay(name, params?.["arguments"] ?? {});
+  const text = answer.verdict === "abort" ? "eval aborted by mock" : answer.text;
+  return { content: [{ type: "text", text }], isError: answer.verdict !== "ok" };
+}
+function error(id, code, message, data) {
+  answer(id, { error: data === undefined ? { code, message } : { code, message, data } });
 }
