@@ -77,7 +77,7 @@
       "name": "pakstack",
       "source": "./plugins/pakstack",
       "strict": false,
-      "description": "Small skills for how Aaron works with agents, such as interview, which questions the user until you both agree on what they want and why."
+      "description": "Small skills for how Aaron works with agents, such as interview, which questions the user until you both agree on what they want and why. Also carries skills that began as Theo Browne's tstack, such as full-send, which takes a change to a merged pull request."
     },
     {
       "name": "session-band",

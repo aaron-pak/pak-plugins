@@ -1,0 +1,6 @@
+interface:
+  display_name: "Setup pakstack"
+  short_description: "Choose and test the models pakstack's skills use"
+  default_prompt: "Use $setup-pakstack to choose and test the models pakstack's skills use."
+policy:
+  allow_implicit_invocation: false
