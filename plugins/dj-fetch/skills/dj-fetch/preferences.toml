@@ -16,6 +16,9 @@ length_tolerance_seconds = 4
 # Files off by more than the tolerance but within this window are kept in
 # _review/ as a fallback while other copies are tried.
 review_tolerance_seconds = 12
+# A download must sound like the Beatport preview of its target (Chromaprint agreement, 0..1).
+# The same recording scores about 0.9; a different song about 0.55.
+min_fingerprint_similarity = 0.7
 # Tracks whose title has one of these are skipped entirely.
 ignore = ["acapella", "acappella"]
 # Words that mark a different version than the one asked for. A file whose name
@@ -33,17 +36,32 @@ rip_markers = [
   "hottest record", "track of the week", "essential mix", "boiler room",
 ]
 
+[player]
+# Aaron plays from USB on an XDJ-RX3: MP3, AAC, WAV, AIFF and FLAC at 44.1/48 kHz, 16/24 bit. Downloads it
+# can't load (ALAC, lossless above 48 kHz) are converted to AIFF before they reach the list folder.
+model = "XDJ-RX3"
+unplayable_codecs = ["alac"]
+max_sample_rate = 48000
+
 [soulseek]
 # Search pacing shared by every djfetch process on this Mac.
 searches_per_window = 25
 window_seconds = 220
 max_inflight_searches = 2
-max_active_transfers = 8
+# Stop a run when this many searches in a row return nothing: the network or server isn't answering.
+empty_search_streak_limit = 12
+max_active_transfers = 16
+# Peers asked at once for the same track; the first good copy wins and the others are cancelled.
+race_peers = 3
 max_peers_per_track = 10
 # Give up on a peer whose queue hasn't started our file in this long.
-remote_queue_timeout_minutes = 6
+remote_queue_timeout_minutes = 3
 # Give up on a transfer that stopped moving.
 stalled_timeout_minutes = 3
+
+[soundcloud]
+# Browsers working through free-download gates at the same time.
+gate_workers = 2
 
 [beatport]
 request_interval_seconds = 1.0

@@ -14,11 +14,13 @@ These are Aaron's decisions. Follow them without asking again.
 - **Version.** Get the extended version of the track. It may be labeled Extended, Original, or nothing at all; the label doesn't matter. Beatport tells you which release is the extended (full-length) one and how long it is, and a file counts as right when its length matches. An unlabeled file of the right length is correct; a file called "Extended" of the wrong length is not.
 - **Skip acappellas.** They're never wanted (`ignore` in `preferences.toml`).
 - **Requested versions win.** "X (Y Remix)" means Y's remix, extended if Beatport has an extended one. Never substitute another remix, a radio edit, an intro/clean DJ-pool edit, a live recording or a radio-show/set rip.
-- **SoundCloud-native tracks** (bootlegs, flips, edits, mashups and anything not on Beatport): take the uploader's free download from SoundCloud. If there are several versions, keep the extended one; otherwise keep what's there. Never rip a stream.
+- **Where a track comes from.** Official releases are on Beatport: Beatport's extended (longest full) version sets the length, and the file comes from Soulseek. Tracks only on SoundCloud (bootlegs, flips, edits, unreleased remixes) come from SoundCloud: the download button, a Buy link that's free or name-your-price, or a download link in the description. If the download has several files, keep the extended one. If none of those exist it's a lost cause; one Soulseek try is fine. Never rip a stream.
 - **Free download gates** (Hypeddit, ToneDen and similar follow/like gates): you may complete them in Zen, where Aaron is signed in to SoundCloud and Google. Signing in with his accounts and accepting a site's terms to do it don't need his approval. Never pay for anything.
 - **Browser.** Use Zen (via cua-driver) for anything that needs a browser session. The T3 browser can't do Google popups.
 - **Formats.** AIFF/WAV/FLAC first, then MP3 320 or 256+ AAC. `preferences.toml` holds the exact order and thresholds.
+- **Player.** Aaron plays from USB on an XDJ-RX3, which loads MP3, AAC, WAV, AIFF and FLAC at 44.1/48 kHz only. ALAC (.m4a Apple Lossless) and anything above 48 kHz get a format error, so dj-fetch converts them to AIFF before they reach the list folder (`[player]` in `preferences.toml`).
 - **Pacing.** Never exceed Soulseek's search pacing (25 searches per 220 s, shared by every process). djfetch enforces it; don't run searches any other way.
+- **Right song, not just right name.** Every Soulseek download is fingerprinted end to end (needs `fpcalc`, from Chromaprint) against Beatport's preview, or, without one, against Deezer and iTunes previews of the same version; a different recording goes to `_rejected/`. A file that sounds like another version (another artist's remake, a different remix) is rejected too. With nothing to listen to, the file's tags must agree with the request. Titles must match word for word ("WITH ME" is not "Show Me"; "Body" is not "Life Is Simple (Move Your Body)"), the first-listed artist must be in the path, and a requested VIP/bootleg/edit must be named in the file.
 - **Where files go.** `~/Music/DJ Fetch/<list>/`: finished tracks at the top, `_review/` for near-misses, `_rejected/` for wrong versions, and `report.md`. Aaron imports the list folder into rekordbox himself.
 - **Updates.** Start long runs in the background and report when they finish, with counts and the report link. Don't send progress messages unless something needs Aaron.
 
@@ -39,14 +41,16 @@ $D/djfetch.py status "John Summit 6mo"
 - Turn whatever Aaron gives you into a CSV with `artist,title` (a 1001Tracklists export works as is; its `beatport` and `soundcloud` link columns make matching better), or pass `--track` lines. Pick a short list name; it becomes the folder.
 - `run` is resumable and idempotent: rerun the same command to continue, add more `--input`/`--track` to grow a list, and add `--retry` to try again the tracks that ended missing, gated or in review.
 - Tracks already in Aaron's library folders (`have_dirs` in `~/.config/dj-fetch/config.toml`, plus `--have <dir>`) are skipped when their length matches the target.
-- For big lists run it in the background. Soulseek search pacing is the floor: about 7 searches a minute, and a track takes 1 to 4 searches. Transfers, Beatport and SoundCloud run alongside the searches.
+- For big lists run it detached (`nohup … &`, note the PID; stop it with `kill -TERM <pid>`), since background tool commands are cut off after 2 hours. Soulseek search pacing is the floor: about 7 searches a minute, and a track takes 1 to 4 searches. Transfers, Beatport and SoundCloud run alongside the searches.
+- **The Mac must stay awake.** A run holds a `caffeinate` assertion, but closing the lid on battery still sleeps the Mac and every search during sleep comes back empty. Runs notice sleep, redo the searches it interrupted and restart slskd after a long sleep, and they stop after 12 empty searches in a row. If tracks were marked missing while the Mac slept, `--retry` them.
+- Before each run djfetch checks that the router forwards the listen port (2235) to this Mac; the Mac mini's Nicotine+ holds 2234. It stops if most transfers fail to connect.
 
 ### What it does per track
 
 1. **Beatport:** finds the release (from the row's Beatport link, else search) and takes its extended version, the full-length one, whatever it's labeled, matching any requested remixer. Records its length, BPM and key.
 2. **Library:** skips the track if a file with the right name and length is already there.
 3. **SoundCloud** (tracks not on Beatport): downloads the uploader's free original file through yt-dlp with Zen's cookies. Reports a gate link if the download is gated.
-4. **Soulseek:** searches with progressively looser queries, scores every returned file (the right length first, then format, then peers with free slots and short queues), and downloads from the best peers in turn. It cancels peers that stall or queue too long, checks each file's real length with ffprobe, and keeps only a match.
+4. **Soulseek:** searches with progressively looser queries (never the artist alone), scores every returned file (the right length first, then format, then peers with free slots and short queues), and every result is matched against every track in the list. It downloads from up to 3 peers at once per track; the first copy that passes length and fingerprint checks wins and the rest are cancelled. Without a Beatport length, only copies as long as the longest one race. Peers that stall or queue too long are dropped.
 
 ### When a track isn't found
 
@@ -62,7 +66,7 @@ Use judgment: try other spellings (Tokyo/Tokio, "&" vs "and", the remixer's alia
 
 ## Setup and upkeep
 
-- `scripts/setup_slskd.py` installs slskd (checksum-verified from GitHub), writes `~/.local/share/slskd/slskd.yml` (Soulseek login, local-only API key, shares) and `~/.config/dj-fetch/config.toml`, and starts it as the launchd agent `com.aaronpak.slskd` on listen port 2234, mapped with UPnP when possible. It's idempotent; `--rewrite` regenerates the configs.
+- `scripts/setup_slskd.py` installs slskd (checksum-verified from GitHub), writes `~/.local/share/slskd/slskd.yml` (Soulseek login, local-only API key, shares) and `~/.config/dj-fetch/config.toml`, and starts it as the launchd agent `com.aaronpak.slskd` on the listen port (this Mac uses `--listen-port 2235`; 2234 is forwarded to the Mac mini), mapped with UPnP and renewed every 30 minutes during runs. It's idempotent; `--rewrite` regenerates the configs.
 - Only one client can use the Soulseek account at a time. If slskd logs "another client logged in using the same username", find and stop the other client (Nicotine+, Sockseek) rather than fighting it.
 - slskd's web UI is at http://127.0.0.1:5030 (user `slskd`, password in `slskd.yml`) if Aaron ever wants to look. Logs are in `~/.local/share/slskd/logs/`.
 - Restart: `launchctl kickstart -k gui/$UID/com.aaronpak.slskd`. Update: rerun `setup_slskd.py --version <tag>`.

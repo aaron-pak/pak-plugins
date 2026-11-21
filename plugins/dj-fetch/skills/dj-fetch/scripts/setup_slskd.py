@@ -149,6 +149,8 @@ def write_launchd(listen_port):
 if [ -x {upnpc} ]; then
   ( {upnpc} -e slskd -r {listen_port} TCP >/dev/null 2>&1 & pid=$!; sleep 30; kill $pid 2>/dev/null ) &
 fi
+# Workstation GC with memory conservation: slskd otherwise grows past 2 GB under heavy searching.
+export DOTNET_gcServer=0 DOTNET_GCConserveMemory=7
 exec {BIN} --app-dir {APP_DIR}
 """)
     WRAPPER.chmod(0o755)
