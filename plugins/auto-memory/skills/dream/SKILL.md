@@ -22,6 +22,7 @@ A helper does the parts that need care: it finds the sessions, shows them as tex
    ```
 
    If it lists problems, fix them and run it again.
+
 4. Tell the user, in a few plain sentences, what changed and why, and how to undo it. Say that the commit also holds any note another session saved in this memory while the dream ran.
 
 If you must stop before step 3, run `node dream.mjs abort` so the lock doesn't block the next dream.

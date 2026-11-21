@@ -1,23 +1,16 @@
 ---
 name: setup-pakstack
-description: Write ~/.config/pakstack/models.md with the user. The file records which models they hand which work to. Run it once on each machine, and again when the models they use change.
+description: Write ~/.config/pakstack/models.md with the user, the file that says which models pakstack's skills hand each kind of work to. Use when the user says "set up pakstack", on a machine without that file, or when the models they use change.
 disable-model-invocation: true
 ---
 
 # Setup pakstack
 
-pakstack's skills name no model. When one hands work to another agent, such
-as a reviewer or a council member, it reads `~/.config/pakstack/models.md` and
-chooses by it. This skill writes that file with the user.
+pakstack's skills name no model. When one hands work to another agent, such as a reviewer or a council member, it reads `~/.config/pakstack/models.md` and chooses by it. This skill writes that file with the user.
 
-Ask the user which models and effort they want for which work: review,
-council, and anything else they hand off. Name a model only after it has
-answered a one-line prompt on this machine, because names from config files,
-older setups and memory go stale. If the file exists, start from it.
+Ask the user which models and effort they want for which work: review, council, and anything else they hand off. Name a model only after it has answered a one-line prompt on this machine, because names from config files, older setups and memory go stale. If the file exists, start from it.
 
-Write the file in the form below. Give each purpose or scenario one line in
-the user's words; its right side may name several models or a condition. Copy
-the "Delegating to an agent" section as it is, then show the user the file.
+Write the file in the form below. Give each purpose or scenario one line in the user's words; its right side may name several models or a condition. Copy the "Delegating to an agent" section as it is, then show the user the file.
 
 ```markdown
 # pakstack models
@@ -28,10 +21,7 @@ the "Delegating to an agent" section as it is, then show the user the file.
 
 ## Delegating to an agent
 
-There are several ways to hand work to another agent, and every harness has
-its own names and tools for them. Use the method the user asks for, or your
-own judgement when they don't say. If the model or the method asked for can't
-be used, report that as a blocker. Never fall back silently.
+There are several ways to hand work to another agent, and every harness has its own names and tools for them. Use the method the user asks for, or your own judgement when they don't say. If the model or the method asked for can't be used, report that as a blocker. Never fall back silently.
 
 | Method | What it is | In T3 Code | In any other harness |
 | --- | --- | --- | --- |

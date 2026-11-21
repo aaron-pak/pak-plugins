@@ -11,6 +11,7 @@ These hold for every page, whatever it looks like.
 **What loads.** A content security policy blocks every outside load except these, with no visible error. Scripts: cdnjs.cloudflare.com (preferred), cdn.jsdelivr.net/npm/, unpkg.com, cdn.tailwindcss.com and code.jquery.com, each URL pinned to an exact version at least two weeks old (`react/18.3.1/…`, never `react@18` or `@latest`; a version you knew before this conversation is old enough), as a classic script placed before the inline script that uses its global. Stylesheets: fonts.googleapis.com only, with a real fallback stack for every face. Everything else is inline: your CSS and JS, images and fonts as `data:` URIs, the data a script reads. No `fetch`, XHR or WebSocket reaches the network. Use a library only when it does real work for the page.
 
 **What a page can't do.** Build around these instead of detecting them.
+
 - The page opens from a `file://` link. It can show files published beside it (see `files`) as images, stylesheets and classic scripts, but can't `fetch()` or import them, and an image from one taints a canvas.
 - No `alert()`, `confirm()` or `prompt()`, no Print or "Save as PDF" button, no `window.print()`.
 - A form is page UI only: handle `submit` with `preventDefault()`, and never point `action` at a site or a `mailto:`.

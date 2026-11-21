@@ -84,6 +84,7 @@ Don't push a measure to the reference's number for its own sake. The goal is the
   ```
 
   It lists numbers (".03" included), citations (author-year, numeric, LaTeX `\cite`), quotations, links, equations, and LaTeX `\ref` and `\label` cross-references that went missing or appeared, and acronyms that changed. For a short target with no `$WORK` yet, make one as step 2 says to run it. Every strict change must be fixed, or, when it's a deliberate and harmless change (a number spelled out as the user's style guide asks), named in the hand-back. Acronym changes are checked by hand.
+
 - **Fidelity, by reading.** The script can't see a claim strengthened or a qualifier dropped. Read the original and the rewrite side by side, paragraph by paragraph, for exactly that, and for anything added.
 - **Voice.** Slice and measure the rewrite as you did the target, and `--compare` it with the reference: the marked measures should be fewer and closer. Where one still differs on purpose (a claim that needs its long sentence), leave it.
 
