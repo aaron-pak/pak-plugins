@@ -38,6 +38,11 @@
       "description": "Get DJ-ready tracks from a tracklist: Beatport decides the right version and length, free SoundCloud downloads cover bootlegs and edits, and slskd fetches the rest from Soulseek with paced searches and peer fallback."
     },
     {
+      "name": "effort-keywords",
+      "source": "./plugins/effort-keywords",
+      "description": "Keywords that set the effort of one turn, the way ultrathink does: type superthink or hthink anywhere in a prompt to run that turn at high effort, midthink or mthink for medium, or xthink for xhigh. The session's own effort is left alone, so the next turn runs as before. Add or change keywords in /config. Claude Code only."
+    },
+    {
       "name": "eli5",
       "source": "./plugins/eli5",
       "strict": false,
