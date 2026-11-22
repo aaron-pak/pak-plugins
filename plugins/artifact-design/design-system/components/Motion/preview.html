@@ -1,0 +1,14 @@
+<!-- @dsCard group="Motion" height=582 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{padding:26px 30px 30px;margin:0}</style></head>
+<body>
+<div class="sk-stack" style="--gap:16px"><div class="sk-row"><button class="sk-btn" data-sk-ghost id="again">Play again</button><span class="sk-caption">Scroll a page to see each part arrive as it comes into view.</span></div>
+<div class="sk-enter" id="box" style="display:grid;gap:26px">
+<div class="sk-hero" data-size="s"><div><div class="sk-label">Entrance</div><h2 class="sk-h2">Every line is drawn the way a <span data-sk-under>hand would draw it</span></h2><span class="sk-note" data-sk-point="right">Watch the drawing</span></div><div class="sk-hero-art" data-sk-draw="grader" data-sk-boil aria-label="A magnifying glass"></div></div>
+<ol class="sk-steps" data-row><li><h4>A ring goes round</h4><p>From the top, round its number, closing past its start.</p></li><li><h4>A tick goes down, then up</h4><p>One stroke, the way you'd make it.</p></li><li><h4>An arrow runs to its tip</h4><p>The shaft first, then the head.</p></li></ol>
+<div class="sk-row" style="--gap:48px;align-items:flex-end"><div class="sk-stack" style="--gap:6px"><div class="sk-label">Pages sent</div><div class="sk-num" data-sk-count>1,284</div></div><div class="sk-stack" style="--gap:10px;flex:1;min-width:200px"><div class="sk-meter-head"><span>Progress</span><b>62%</b></div><div class="sk-meter" style="--v:.62"></div></div><label class="sk-check"><input type="checkbox"><span>Tick me</span></label></div>
+</div></div>
+<script>document.getElementById("again").onclick=function(){Sketchbook.replay(document.getElementById("box"))};</script>
+</body>
+</html>

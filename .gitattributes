@@ -1,0 +1,4 @@
+# Built bundles; GitHub collapses them in diffs.
+plugins/*/mcp/*.mjs linguist-generated=true
+plugins/*/bin/*.mjs linguist-generated=true
+plugins/auto-memory/skills/dream/scripts/dream.mjs linguist-generated=true

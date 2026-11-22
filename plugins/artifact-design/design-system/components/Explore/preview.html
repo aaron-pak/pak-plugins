@@ -1,0 +1,90 @@
+<!-- @dsCard group="Pages" height=2000 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}
+.names{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:30px 10px;list-style:none;margin:0;padding:0}
+.names li{position:relative;display:grid;gap:3px;padding:12px 12px 11px;border-radius:10px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line);transition:background-color .35s,box-shadow .35s,opacity .35s,transform .35s var(--ease-settle)}
+.names li small{font:500 10.5px/1 var(--font-mono);letter-spacing:.06em;color:var(--muted)}
+.names li span{font:600 15.5px/1.2 var(--font-display);color:var(--ink);letter-spacing:-.01em}
+.names li[data-out]{background:transparent;box-shadow:inset 0 0 0 1px var(--line);opacity:.38}
+.names li[data-out] span{text-decoration:line-through;text-decoration-thickness:1.5px;text-decoration-color:var(--line-strong)}
+.names li[data-mid]{box-shadow:inset 0 0 0 2px var(--clay);transform:translateY(-3px)}
+.names li[data-mid]::after{content:"look here";position:absolute;left:50%;top:-21px;transform:translateX(-50%);font:400 15px/1 var(--font-hand);color:var(--accent);white-space:nowrap}
+.names li[data-found]{background:var(--clay);box-shadow:none;transform:translateY(-3px)}
+.names li[data-found] span,.names li[data-found] small{color:var(--ink-on-clay)}
+.tally{display:flex;gap:40px;align-items:baseline;margin-top:26px}
+.tally div{display:grid;gap:4px}
+.tally b{font:600 44px/1 var(--font-display);letter-spacing:-.03em;color:var(--ink);font-variant-numeric:tabular-nums}
+.stage-top{padding-top:30px}
+@media (max-width:760px){.names{grid-template-columns:repeat(4,minmax(0,1fr));gap:26px 8px}.names li{padding:10px 10px 9px}.names li span{font-size:14px}.tally{gap:28px}.tally b{font-size:36px}}
+</style></head>
+<body>
+<main class="sk-page sk-enter">
+  <div class="sk-hero">
+    <div>
+      <div class="sk-label">How it works · binary search</div>
+      <h1 class="sk-title">How to find one name in a million with twenty looks</h1>
+      <p class="sk-lede">Open a sorted list in the middle and throw away the half the name can't be in. Do it again with what's left. Step through it below, on sixteen names.</p>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="lens" data-sk-boil aria-label="A magnifying lens"></div>
+  </div>
+
+  <section class="sk-section">
+    <header><div class="sk-label">Step through it</div><h2 class="sk-h2">Looking for Nguyen</h2></header>
+    <div class="sk-player" aria-label="Binary search, step by step" id="search">
+      <div class="sk-player-stage stage-top">
+        <ol class="names" id="names" aria-label="Sixteen names in alphabetical order">
+          <li><small>1</small><span>Adams</span></li><li><small>2</small><span>Baker</span></li><li><small>3</small><span>Chen</span></li><li><small>4</small><span>Diaz</span></li>
+          <li><small>5</small><span>Evans</span></li><li><small>6</small><span>Fischer</span></li><li><small>7</small><span>Garcia</span></li><li><small>8</small><span>Kim</span></li>
+          <li><small>9</small><span>Lopez</span></li><li><small>10</small><span>Moreau</span></li><li><small>11</small><span>Nguyen</span></li><li><small>12</small><span>Okafor</span></li>
+          <li><small>13</small><span>Patel</span></li><li><small>14</small><span>Quinn</span></li><li><small>15</small><span>Rossi</span></li><li><small>16</small><span>Silva</span></li>
+        </ol>
+        <div class="tally"><div><span class="sk-label">Still in play</span><b id="left">16</b></div><div><span class="sk-label">Looks so far</span><b id="looks">0</b></div></div>
+      </div>
+      <ol class="sk-player-steps">
+        <li><b>Sixteen names, in order.</b> We want Nguyen. Reading from the top would take eleven looks.</li>
+        <li><b>Look in the middle: Kim.</b> Nguyen comes after Kim, so Kim and everything before it can go. Eight names left.</li>
+        <li><b>The middle of what's left is Okafor.</b> Nguyen comes before it, so Okafor and everything after can go. Three left.</li>
+        <li><b>The middle of three is Moreau.</b> Nguyen comes after. One name left.</li>
+        <li><b>Nguyen. Found in four looks.</b> Each look halves the list, so twice the names costs only one more look.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="sk-section sk-two" data-top>
+    <div class="sk-stack" style="--gap:14px">
+      <header class="sk-stack" style="--gap:6px"><div class="sk-label">Why it's fast</div><h2 class="sk-h2">Everyone on Earth takes 33 looks</h2></header>
+      <p class="sk-measure">Doubling the list adds one look. A thousand names take at most ten looks, a million at most twenty, and every person alive fits in thirty-three.</p>
+    </div>
+    <div data-sk-chart="hbars" data-sk-key="Everyone on Earth" aria-label="Most looks needed to find one name" data-sk-data='[["16 names",5],["A thousand",10],["A million",20],["Everyone on Earth",33]]'></div>
+  </section>
+
+  <section class="sk-section">
+    <aside class="sk-callout"><span class="sk-spot" data-sk-draw="cards"></span><h4>It only works on a list that's already in order</h4><p>Sorting takes far longer than one read through. For a single search of an unsorted list, just read it from the top. Sort once when you'll search it many times.</p></aside>
+  </section>
+</main>
+<script>
+(function () {
+  // each step names the middle, what goes, and what's left; the tiles follow
+  var tiles = document.querySelectorAll('#names li'), S = [
+    { lo: 0, hi: 15, mid: -1, looks: 0 },
+    { lo: 8, hi: 15, mid: 7, looks: 1, outLo: 0, outHi: 7 },
+    { lo: 8, hi: 10, mid: 11, looks: 2 },
+    { lo: 10, hi: 10, mid: 9, looks: 3 },
+    { lo: 10, hi: 10, mid: -1, looks: 4, found: 10 }
+  ];
+  document.getElementById('search').addEventListener('sk:step', function (e) {
+    var s = S[e.detail.i];
+    tiles.forEach(function (t, k) {
+      var keep = k >= s.lo && k <= s.hi;
+      t.toggleAttribute('data-out', !keep && k !== s.mid);
+      t.toggleAttribute('data-mid', k === s.mid);
+      t.toggleAttribute('data-found', k === s.found);
+    });
+    Sketchbook.set(document.getElementById('left'), String(s.hi - s.lo + 1));
+    Sketchbook.set(document.getElementById('looks'), String(s.looks));
+  });
+})();
+</script>
+</body>
+</html>

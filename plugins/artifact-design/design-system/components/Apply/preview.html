@@ -1,0 +1,71 @@
+<!-- @dsCard group="Pages" height=1700 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}</style></head>
+<body>
+<main class="sk-page sk-enter" data-width="narrow">
+  <div class="sk-hero" data-layout="mark">
+    <div>
+      <div class="sk-label">Elm Road community garden · 2027 season</div>
+      <h1 class="sk-title">Apply for a plot</h1>
+      <p class="sk-lede">Four short steps, about three minutes. You can change anything before you send it.</p>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="sprout" data-sk-boil aria-label="A sprout"></div>
+  </div>
+
+  <form class="sk-wizard" data-sk-send="Send my application" id="apply" novalidate>
+    <fieldset data-step="You">
+      <legend>Who's applying?</legend>
+      <div class="sk-field"><label for="name">Your name</label><input class="sk-input" id="name" autocomplete="name" required data-sk-msg="Add your name, so we know who to give the plot to."></div>
+      <div class="sk-field"><label for="email">Email</label><input class="sk-input" id="email" type="email" autocomplete="email" required data-sk-msg="Add an email; it's how we tell you which plot is yours."><p class="sk-help">We only use it about your plot.</p></div>
+      <div class="sk-field"><label for="phone">Phone <span class="sk-help">optional</span></label><input class="sk-input" id="phone" type="tel" autocomplete="tel"></div>
+    </fieldset>
+
+    <fieldset data-step="Plot">
+      <legend>What kind of plot?</legend>
+      <div class="sk-choices" data-cards role="radiogroup" aria-labelledby="sizeL"><span class="sk-field-label" id="sizeL">Size</span>
+        <label class="sk-radio"><input type="radio" name="size" value="half" required data-sk-msg="Pick a size."><span>Half plot<small>3 by 4 metres, £20 a year. Enough for salad and herbs.</small></span></label>
+        <label class="sk-radio"><input type="radio" name="size" value="full"><span>Full plot<small>6 by 4 metres, £35 a year. Room for potatoes and squash.</small></span></label>
+      </div>
+      <div class="sk-field"><span class="sk-field-label">Grown food before?</span><div class="sk-seg" aria-label="Grown food before?"><button value="none" aria-checked="true">Never</button><button value="some">A little</button><button value="lots">Lots</button></div></div>
+    </fieldset>
+
+    <fieldset data-step="Time">
+      <legend>When can you come?</legend>
+      <p>Plots need watering at least twice a week from May. Pick the days you could usually make it.</p>
+      <div class="sk-choices" data-row role="group" aria-labelledby="daysL"><span class="sk-field-label" id="daysL">Days</span>
+        <label class="sk-check"><input type="checkbox"><span>Mon</span></label><label class="sk-check"><input type="checkbox"><span>Tue</span></label><label class="sk-check"><input type="checkbox"><span>Wed</span></label><label class="sk-check"><input type="checkbox"><span>Thu</span></label><label class="sk-check"><input type="checkbox"><span>Fri</span></label><label class="sk-check"><input type="checkbox" checked><span>Sat</span></label><label class="sk-check"><input type="checkbox" checked><span>Sun</span></label>
+      </div>
+      <div class="sk-field"><label for="note">Anything we should know? <span class="sk-help">optional</span></label><textarea class="sk-input" id="note" placeholder="A raised bed, some shade, near a friend’s plot…"></textarea></div>
+    </fieldset>
+
+    <fieldset data-step="Check" data-sk-review>
+      <legend>Check and send</legend>
+      <p>Change anything that's wrong, then send it. We'll write to you either way.</p>
+    </fieldset>
+
+    <div class="sk-wizard-done" hidden>
+      <span class="sk-spot" data-size="l" data-sk-draw="check"></span>
+      <h3 class="sk-h3" id="doneTitle">You're on the list.</h3>
+      <p class="sk-small">Plots are drawn on Friday 26 February. We'll email you that evening, and the first dig is Saturday 6 March at 10.</p>
+      <button type="button" class="sk-btn" data-sk-quiet data-sk-again>Change my application</button>
+    </div>
+  </form>
+
+  <section class="sk-section">
+    <header><div class="sk-label">What happens next</div><h2 class="sk-h2">Three dates to keep</h2></header>
+    <ol class="sk-timeline" data-dir="row">
+      <li data-state="now"><time>Sat 20 Feb</time><h4>Applications close</h4><p>At midnight.</p></li>
+      <li data-state="next"><time>Fri 26 Feb</time><h4>Plots drawn</h4><p>Out of a hat, in the shed, at 6 pm. Come and watch.</p></li>
+      <li data-state="next"><time>Sat 6 Mar</time><h4>First dig</h4><p>Bring gloves. Tea and tools are here.</p></li>
+    </ol>
+  </section>
+</main>
+<script>
+document.getElementById('apply').addEventListener('sk:submit', function (e) {
+  var name = (e.detail['Your name'] || '').split(' ')[0];
+  Sketchbook.set(document.getElementById('doneTitle'), name ? 'You’re on the list, ' + name + '.' : 'You’re on the list.');
+});
+</script>
+</body>
+</html>

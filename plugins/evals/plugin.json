@@ -1,0 +1,8 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "evals",
+  "description": "Build, run and hillclimb evals for anything that shapes what an agent does: a plugin, skill, MCP server, instruction file, system prompt or model. One command says what a suite needs next, and results are kept, named and reused, so a change is measured against a baseline without running the baseline again. Its own runner works under Claude Code or Codex, with Opus judges, cases cut from real sessions and paired comparisons.",
+  "author": {
+    "name": "Aaron Pak"
+  }
+}

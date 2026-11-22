@@ -1,0 +1,79 @@
+<!-- @dsCard group="Pages" height=2450 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}
+.install{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.install code{font:500 15px var(--font-mono);color:var(--ink);background:var(--panel);padding:10px 14px;border-radius:10px}
+.demo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:var(--space-56,56px);align-items:center}
+@media (max-width:860px){.demo{grid-template-columns:1fr;gap:26px}}
+.closing{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:var(--space-40,40px);align-items:center}
+@media (max-width:760px){.closing{grid-template-columns:1fr;gap:14px}}
+</style></head>
+<body>
+<main class="sk-page sk-enter">
+  <div class="sk-hero">
+    <div class="sk-stack" style="--gap:22px">
+      <div class="sk-stack" style="--gap:14px">
+        <div class="sk-label">Tidybox · for macOS and Linux · free</div>
+        <h1 class="sk-title">Tidybox puts your Downloads folder away, and <span data-sk-under>shows you first</span></h1>
+        <p class="sk-lede">One command sorts screenshots, installers and PDFs into folders you already have, and old installers into the Trash. Nothing moves until you say so, and anything can go back.</p>
+      </div>
+      <div class="install"><code>brew install tidybox</code><button class="sk-btn" data-sk-arrow data-sk-copy-text="brew install tidybox" data-sk-copied="Copied. Paste it in a terminal.">Copy the install command</button></div>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="folder photo box" data-sk-scene="orbit" data-sk-boil aria-label="A folder, with a screenshot and an installer going into it"></div>
+  </div>
+
+  <section class="sk-section">
+    <div class="demo">
+      <header class="sk-stack" style="--gap:12px"><div class="sk-label">See it run</div><h2 class="sk-h2">Look first, then move</h2><p class="sk-measure">A dry run lists what would move and where. Run it again without the flag and it does exactly that, then tells you how to undo it.</p></header>
+      <figure class="sk-terminal" data-title="~/Downloads" data-sk-copy-n="1"><pre>$ tidybox --dry-run
+Looked at 214 files. Would move 192:
+  128 screenshots   → Pictures/Screenshots
+   41 installers    → Trash, all over 30 days old
+   23 PDFs          → Documents
+   22 others stay where they are.
+$ tidybox
+Moved 192 files. Empty the Trash to free 3.2 GB.
+# Changed your mind? tidybox --undo</pre></figure>
+    </div>
+  </section>
+
+  <section class="sk-section">
+    <header><div class="sk-label">Why people keep it</div><h2 class="sk-h2">Careful by default</h2></header>
+    <div class="sk-grid" style="--min:230px">
+      <article class="sk-card"><div class="sk-art" data-sk-shape="panel" data-tone="oat" data-sk-draw="lens" aria-hidden="true"></div><h3>It shows you first</h3><p class="sk-small">Every run starts as a list. Nothing moves until you run it for real.</p></article>
+      <article class="sk-card"><div class="sk-art" data-sk-shape="panel" data-tone="sage" data-sk-draw="folder" aria-hidden="true"></div><h3>It uses your folders</h3><p class="sk-small">Screenshots go where your screenshots already live. It makes no folders of its own.</p></article>
+      <article class="sk-card"><div class="sk-art" data-sk-shape="panel" data-tone="oat" data-sk-draw="clock" aria-hidden="true"></div><h3>Anything can go back</h3><p class="sk-small"><code>tidybox --undo</code> puts the last run back, for 30 days.</p></article>
+    </div>
+  </section>
+
+  <section class="sk-section">
+    <header><div class="sk-label">The rules</div><h2 class="sk-h2">How it decides where things go</h2></header>
+    <div class="sk-table-wrap"><table class="sk-table">
+      <thead><tr><th>Kind of file</th><th data-phone="hide">How it knows</th><th>Where it goes</th></tr></thead>
+      <tbody>
+        <tr><td>Screenshots</td><td data-phone="hide">The name your Mac or Linux desktop gives them</td><td>Pictures/Screenshots</td></tr>
+        <tr><td>Installers</td><td data-phone="hide">.dmg, .pkg, .deb and .AppImage files you've opened</td><td>The Trash, once it’s 30 days old</td></tr>
+        <tr><td>PDFs</td><td data-phone="hide">The file type</td><td>Documents</td></tr>
+        <tr><td>Everything else</td><td data-phone="hide">Nothing matched</td><td>Stays where it is</td></tr>
+      </tbody>
+      <caption>Change any rule in <code>~/.config/tidybox/rules.toml</code>.</caption>
+    </table></div>
+  </section>
+
+  <section class="sk-section">
+    <header><div class="sk-label">Questions</div><h2 class="sk-h2">Before you install</h2></header>
+    <div style="max-width:720px">
+      <details class="sk-details"><summary>Does it run on its own?</summary><div><p>Only if you ask it to. <code>tidybox --every friday</code> adds a weekly run; <code>tidybox --stop</code> removes it.</p></div></details>
+      <details class="sk-details"><summary>Can it delete anything?</summary><div><p>No. An installer goes to the Trash once it’s 30 days old, where you can still get it back. Nothing is ever deleted outright.</p></div></details>
+      <details class="sk-details"><summary>Does it send anything anywhere?</summary><div><p>No. It reads file names and types on your computer and nothing else.</p></div></details>
+    </div>
+  </section>
+
+  <section class="sk-section closing" data-mode="band" data-tone="sage">
+    <div class="sk-stack" style="--gap:12px"><div class="sk-label">Try it</div><h2 class="sk-statement">Start with a <em>dry run.</em></h2></div>
+    <div class="sk-stack" style="--gap:18px"><p>Install it, run <code>tidybox --dry-run</code> in your Downloads folder and read the list. If a rule is wrong, change it before anything moves.</p><div class="install"><code>brew install tidybox</code><button class="sk-btn" data-sk-ghost data-sk-copy-text="brew install tidybox" data-sk-copied="Copied. Paste it in a terminal.">Copy</button></div></div>
+  </section>
+</main>
+</body>
+</html>

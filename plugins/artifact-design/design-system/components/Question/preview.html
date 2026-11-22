@@ -1,0 +1,19 @@
+<!-- @dsCard group="Controls" height=359 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{padding:26px 30px 30px;margin:0}</style></head>
+<body>
+<form class="sk-quiz" style="max-width:600px">
+<div class="sk-label">Check yourself</div>
+<h3 class="sk-h3">A test gives p = 0.03. Which of these is true?</h3>
+<fieldset><legend class="sk-sr">Answers</legend>
+<label class="sk-radio"><input type="radio" name="q1"><span>There's a 3% chance the null hypothesis is true</span></label>
+<label class="sk-radio" data-right><input type="radio" name="q1"><span>If the null were true, data this extreme would turn up 3% of the time</span></label>
+<label class="sk-radio"><input type="radio" name="q1"><span>The effect is large</span></label>
+</fieldset>
+<div class="sk-quiz-foot"><button class="sk-btn" type="button" data-sk-check>Check</button></div>
+<aside class="sk-callout" data-tone="good" data-sk-if="right" hidden><div class="sk-label">Right</div><p>The p-value is about the data, given the null.</p></aside>
+<aside class="sk-callout" data-tone="bad" data-sk-if="wrong" hidden><div class="sk-label">Not quite</div><p>The p-value assumes the null is true, so it can't also be the chance that it is.</p></aside>
+</form>
+</body>
+</html>

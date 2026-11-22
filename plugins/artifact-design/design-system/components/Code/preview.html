@@ -1,0 +1,14 @@
+<!-- @dsCard group="Code and chat" height=382 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{padding:26px 30px 30px;margin:0}</style></head>
+<body>
+<pre class="sk-code" data-lang="sql" data-title="top_movies.sql" data-sk-lines="5" data-sk-notes='{"4":"Match each rating to its title by the shared id.","5":"The floor: only movies with at least 25,000 votes count."}'><code>-- Top-rated movies with enough votes to trust
+SELECT b.primary_title, ROUND(r.average_rating, 1) AS rating
+FROM title_basics AS b
+JOIN title_ratings AS r ON r.tconst = b.tconst
+WHERE b.title_type = 'movie' AND r.num_votes >= 25000
+ORDER BY rating DESC
+LIMIT 5;</code></pre>
+</body>
+</html>

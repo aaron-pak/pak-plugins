@@ -1,0 +1,9 @@
+<!-- @dsCard group="Controls" height=101 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{padding:26px 30px 30px;margin:0}</style></head>
+<body>
+<div class="sk-row" style="--gap:14px"><button class="sk-btn" data-sk-open="#dlg">Leave delivery instructions</button><button class="sk-btn" data-sk-ghost onclick="Sketchbook.toast('Saved for the driver')">Show a toast</button><button class="sk-btn" data-sk-ghost onclick="Sketchbook.toast('Pick an answer first',{tone:'warn'})">A warning toast</button><span class="sk-small" data-sk-tip="Exact: $18,240.50" tabindex="0" style="border-bottom:1px dashed var(--line-strong)">Point here for a tooltip</span></div>
+<dialog class="sk-dialog" id="dlg"><button class="sk-x" data-sk-close aria-label="Close"></button><h3>Where should they leave it?</h3><p class="sk-small">The driver sees this at your door.</p><div class="sk-field" style="margin-top:16px"><label for="dn">Instructions</label><textarea class="sk-input" id="dn">With the doorman, please.</textarea></div><footer><button class="sk-btn" data-sk-ghost data-sk-close>Cancel</button><button class="sk-btn" data-sk-close onclick="Sketchbook.toast('Saved for the driver')">Save</button></footer></dialog>
+</body>
+</html>

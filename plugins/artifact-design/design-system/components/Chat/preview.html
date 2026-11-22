@@ -1,0 +1,14 @@
+<!-- @dsCard group="Code and chat" height=409 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{padding:26px 30px 30px;margin:0}</style></head>
+<body>
+<div class="sk-chat" style="max-width:660px">
+<div class="sk-msg" data-from="user"><div class="sk-who">Task <time>00:00</time></div><div class="sk-body">The date picker shows yesterday for users west of UTC. Fix it and add a test.</div></div>
+<div class="sk-msg" data-from="assistant"><div class="sk-who">Claude <time>00:04</time></div><div class="sk-body"><p>I'll find where the picker turns the stored date into a day.</p></div></div>
+<details class="sk-tool"><summary><span>Search</span><code>formatDay|toISOString</code><time>0.3 s</time></summary><pre>src/picker/day.ts:14   return new Date(value).toISOString()</pre></details>
+<details class="sk-tool" data-state="error"><summary><span>Run tests</span><code>bun test picker</code><span class="sk-pill" data-tone="bad">1 failed</span></summary><pre>✗ toDay handles a full timestamp</pre></details>
+<div class="sk-msg" data-from="system"><div class="sk-body">Context compacted at 82%</div></div>
+</div>
+</body>
+</html>

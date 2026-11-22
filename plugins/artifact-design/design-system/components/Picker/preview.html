@@ -1,0 +1,133 @@
+<!-- @dsCard group="Pages" height=1300 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}
+.pick-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center}
+@media (max-width:560px){#pair .sk-mini{--ratio:4/5}}
+@media (max-width:760px){.pick-acts{flex-direction:column-reverse;align-items:stretch}.pick-acts>.sk-btn{justify-content:center}}
+</style></head>
+<body>
+<main class="sk-page sk-enter" data-width="wide">
+  <div class="sk-stack" style="--gap:12px;max-width:680px">
+    <div class="sk-label">Send or fix · round 2</div>
+    <h1 class="sk-title">Which page would you send as it is?</h1>
+    <p class="sk-lede">Two pages made from the same request. Pick the one you'd send without another round. Go with your gut; there's no wrong answer.</p>
+  </div>
+
+  <div class="pick-head">
+    <span class="sk-label">Pair <b style="color:var(--ink)" id="pairN">3</b> of 6</span>
+    <div class="sk-meter" data-size="thin" style="--v:.33" aria-label="Pairs done" id="prog"></div>
+    <span class="sk-caption" id="left">about 2 minutes left</span>
+  </div>
+
+  <div class="sk-two" data-even data-top id="pair">
+    <button class="sk-choice" aria-pressed="false" data-key="a">
+      <div class="sk-frame" data-sk-chrome="Explain the tailnet"><div class="sk-mini" data-sk-scroll data-sk-w="760">
+        <div class="sk-page">
+          <div class="sk-hero"><div><div class="sk-label">Home network</div><div class="sk-title">Your tailnet is one private network across every device</div><p class="sk-lede">Each laptop and phone gets an address only your other devices can reach, wherever they are.</p></div><div class="sk-hero-art" data-sk-draw="agent"></div></div>
+          <div class="sk-grid" style="--min:240px"><div class="sk-card"><span class="sk-spot" data-sk-draw="laptop"></span><h3>MacBook</h3><p class="sk-small">100.64.0.2, online</p></div><div class="sk-card"><span class="sk-spot" data-sk-draw="computer"></span><h3>Mac mini</h3><p class="sk-small">100.64.0.3, online</p></div><div class="sk-card"><span class="sk-spot" data-sk-draw="lock"></span><h3>Keys</h3><p class="sk-small">Renew in 41 days</p></div></div>
+        </div></div></div>
+      <div class="sk-choice-foot"><kbd>A</kbd> Left page</div>
+    </button>
+    <button class="sk-choice" aria-pressed="false" data-key="b">
+      <div class="sk-frame" data-sk-chrome="Explain the tailnet"><div class="sk-mini" data-sk-scroll data-sk-w="760">
+        <div class="sk-page" data-width="narrow">
+          <div class="sk-stack" style="--gap:12px"><div class="sk-label">Home network</div><div class="sk-title">What a tailnet is, and why your Macs can see each other</div></div>
+          <div class="sk-prose"><p>A tailnet is a private network that lives on top of the internet. Every device you sign in gets an address that starts with 100, and only your other devices can reach it.</p><p>That is why the Mac mini answers from a café: the two Macs talk to each other directly, and the traffic is locked end to end.</p></div>
+          <aside class="sk-callout" data-tone="clay"><span class="sk-spot" data-sk-draw="lock"></span><h4>Keys expire in 41 days</h4><p>Sign in again before then, or the Mac mini drops off the network.</p></aside>
+        </div></div></div>
+      <div class="sk-choice-foot"><kbd>B</kbd> Right page</div>
+    </button>
+  </div>
+  <div class="sk-empty" id="done" hidden><span class="sk-spot" data-size="l" data-sk-draw="check"></span><h3>That's all six. Thank you.</h3><p>Your picks decide which way the next round of pages goes. You can close this tab.</p></div>
+  <div class="sk-row pick-acts" data-between>
+    <div class="sk-row"><button class="sk-btn" data-sk-ghost id="neither">Neither, both need work</button><button class="sk-btn" data-sk-quiet id="skip">Skip this pair</button></div>
+    <button class="sk-btn" id="next" data-sk-arrow aria-disabled="true">Next pair</button>
+  </div>
+
+  <section class="sk-section">
+    <header><div class="sk-label">Your picks so far</div><h2 class="sk-h3" id="tally">Two pairs, and you've sent the left page once</h2></header>
+    <div class="sk-chain" data-size="l" aria-label="Picks so far" id="picks"><i data-on></i><i data-tone="clay"></i><i data-today></i><i></i><i></i><i></i></div>
+    <div class="sk-chart-key"><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--ink);margin-right:6px"></i>Left page</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--clay);margin-right:6px"></i>Right page</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--putty);margin-right:6px"></i>Neither</span></div>
+  </section>
+</main>
+
+<template id="p4"><div data-req="Show this week's sales">
+  <div class="sk-page"><div class="sk-stack" style="--gap:10px"><div class="sk-label">Corner Coffee · week 45</div><div class="sk-title" style="font-size:44px">Saturday carried the week</div></div>
+  <div class="sk-stats"><div class="sk-stat" data-sk-key><div class="sk-label">Sales</div><div class="sk-stat-v">$18,240</div><span class="sk-delta" data-dir="up">12% <span>vs last week</span></span></div><div class="sk-stat"><div class="sk-label">Orders</div><div class="sk-stat-v">2,914</div><span class="sk-delta" data-dir="up">8%</span></div><div class="sk-stat"><div class="sk-label">Average order</div><div class="sk-stat-v">$6.26</div><span class="sk-delta" data-dir="flat">0%</span></div></div>
+  <div data-sk-chart="bars" data-sk-h="200" data-sk-key="Sat" data-sk-format='{"prefix":"$"}' aria-label="Sales by day" data-sk-data='[["Mon",2110],["Tue",2240],["Wed",2390],["Thu",2480],["Fri",2860],["Sat",3910],["Sun",2250]]'></div></div>
+</div><div>
+  <div class="sk-page" data-width="narrow"><div class="sk-stack" style="--gap:10px"><div class="sk-label">Corner Coffee · week 45</div><div class="sk-title" style="font-size:44px">A good week, mostly thanks to Saturday</div></div>
+  <div class="sk-num">$18,240<small>in sales</small></div>
+  <div class="sk-prose"><p>That is 12% more than last week. Saturday alone took $3,910, the farmers' market crowd again.</p><p>Weekdays were steady. Sunday was the slowest day, as it has been all autumn.</p></div></div>
+</div></template>
+<template id="p5"><div data-req="Make a packing list for Lisbon">
+  <div class="sk-page" data-width="narrow"><div class="sk-stack" style="--gap:10px"><div class="sk-label">Lisbon · four days in May</div><div class="sk-title" style="font-size:44px">Pack for warm days and cool evenings</div></div>
+  <ul class="sk-tasks"><li><label class="sk-check"><input type="checkbox" checked><span>Passport and the two boarding passes</span></label></li><li><label class="sk-check"><input type="checkbox" checked><span>Walking shoes you've already broken in</span></label></li><li><label class="sk-check"><input type="checkbox"><span>A light jumper for the evenings</span></label></li><li><label class="sk-check"><input type="checkbox"><span>Sun cream and a hat</span></label></li><li><label class="sk-check"><input type="checkbox"><span>A plug adapter, type F</span></label></li></ul></div>
+</div><div>
+  <div class="sk-page"><div class="sk-stack" style="--gap:10px"><div class="sk-label">Lisbon · four days in May</div><div class="sk-title" style="font-size:44px">What to bring</div></div>
+  <div class="sk-grid" style="--min:200px"><div class="sk-card"><span class="sk-spot" data-sk-draw="ticket"></span><h3>Papers</h3><p class="sk-small">Passport, boarding passes, insurance card.</p></div><div class="sk-card"><span class="sk-spot" data-sk-draw="suitcase"></span><h3>Clothes</h3><p class="sk-small">Light layers, a jumper, shoes for hills.</p></div><div class="sk-card"><span class="sk-spot" data-sk-draw="sun"></span><h3>Sun</h3><p class="sk-small">Cream, a hat, sunglasses.</p></div></div></div>
+</div></template>
+<template id="p6"><div data-req="Explain how a heat pump works">
+  <div class="sk-page"><div class="sk-stack" style="--gap:10px"><div class="sk-label">Home energy</div><div class="sk-title" style="font-size:44px">A heat pump moves heat in. It doesn't make it.</div></div>
+  <div class="sk-flow" data-sk-flow='[["sun","Outside air","warms the"],["gear","Refrigerant","is squeezed hot by the"],["gauge","Compressor","sends the heat to"],["house","Your home"]]'></div></div>
+</div><div>
+  <div class="sk-page" data-width="narrow"><div class="sk-stack" style="--gap:10px"><div class="sk-label">Home energy</div><div class="sk-title" style="font-size:44px">How a heat pump heats a house</div></div>
+  <div class="sk-prose"><p>Even cold air holds some heat. A heat pump pulls it into a liquid that boils at very low temperatures, squeezes that gas until it is hot, and lets the heat out inside.</p><p>For each unit of electricity it uses, it moves about three units of heat into the house.</p></div>
+  <aside class="sk-sticky"><p>Works down to about −15 °C</p></aside></div>
+</div></template>
+<script>
+(function () {
+  // a pick, or Neither, goes into the row of dots below and the next pair comes up; Skip moves on without one.
+  // The pairs still to come wait in <template>s: the request, then the left page, then the right.
+  var $ = function (id) { return document.getElementById(id); };
+  var pair = $('pair'), next = $('next'), dots = $('picks').querySelectorAll('i'), at = 2, n = 3, N = 6, words = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six'];
+  var SECONDS = 25; // about how long one pair takes
+  function picked() { return pair.querySelector('[aria-pressed="true"]'); }
+  function pick(b) {
+    pair.querySelectorAll('.sk-choice').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
+    next.removeAttribute('aria-disabled'); b.focus({ preventScroll: true });
+  }
+  function tally() {
+    var made = 0, left = 0;
+    dots.forEach(function (d, k) { if (k >= at) return; if (d.hasAttribute('data-on') || d.dataset.tone) made++; if (d.hasAttribute('data-on')) left++; });
+    var head = words[made] + (made === 1 ? ' pair' : ' pairs');
+    return left === 0 ? head + ', and you haven’t sent the left page yet' : head + ', and you’ve sent the left page ' + (left === 1 ? 'once' : left === 2 ? 'twice' : words[left].toLowerCase() + ' times');
+  }
+  function timeLeft() { var m = Math.round(((N - n + 1) * SECONDS) / 60); return m <= 1 ? 'about a minute left' : 'about ' + m + ' minutes left'; }
+  function load(k) {
+    var t = $('p' + k); if (!t) return;
+    var parts = t.content.children;
+    pair.querySelectorAll('.sk-choice').forEach(function (b, j) {
+      var page = b.querySelector('.sk-mini-page') || b.querySelector('.sk-mini');
+      b.querySelector('.sk-frame').setAttribute('data-sk-chrome', parts[0].dataset.req);
+      page.innerHTML = parts[j].innerHTML; page.parentNode.scrollTop = 0;
+      Sketchbook.mount(page);
+    });
+  }
+  function advance(mark) {
+    var d = dots[at]; d.removeAttribute('data-today');
+    if (mark === 'a') d.setAttribute('data-on', ''); else if (mark === 'b') d.dataset.tone = 'clay'; else if (mark === 'none') d.dataset.tone = 'putty';
+    at++; Sketchbook.set($('tally'), tally()); $('prog').style.setProperty('--v', (at / N).toFixed(2));
+    if (n >= N) {
+      pair.hidden = true; document.querySelector('.pick-acts').hidden = true; $('done').hidden = false; Sketchbook.mount($('done'));
+      Sketchbook.set($('left'), 'all done'); return;
+    }
+    n++; if (dots[at]) dots[at].setAttribute('data-today', '');
+    Sketchbook.set($('pairN'), String(n)); Sketchbook.set($('left'), timeLeft());
+    pair.querySelectorAll('.sk-choice').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+    next.setAttribute('aria-disabled', 'true');
+    load(n);
+  }
+  pair.addEventListener('click', function (e) { var b = e.target.closest('.sk-choice'); if (b) pick(b); });
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey || pair.hidden) return;
+    var b = pair.querySelector('[data-key="' + e.key.toLowerCase() + '"]'); if (b) pick(b);
+  });
+  next.addEventListener('click', function () { var b = picked(); if (b) advance(b.dataset.key); });
+  $('neither').addEventListener('click', function () { advance('none'); });
+  $('skip').addEventListener('click', function () { advance(null); });
+})();
+</script>
+</body>
+</html>

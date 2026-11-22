@@ -1,0 +1,131 @@
+<!-- @dsCard group="Pages" height=1350 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}
+.q{transition:opacity .22s var(--ease-out,ease),transform .22s var(--ease-out,ease)}
+.q.out{opacity:0;transform:translateY(6px)}
+.q{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-card);padding:30px 30px 26px}
+@media (max-width:760px){.q{padding:22px 18px 20px;margin-inline:-6px}}
+.end{display:grid;gap:22px}
+.end-top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px 28px;flex-wrap:wrap}
+.end .sk-num small{font-size:.32em}
+.ticks{display:flex;gap:14px;list-style:none;margin:0;padding:0 0 6px}
+.ticks li{display:grid;justify-items:center;gap:6px;font:500 11px/1 var(--font-mono);letter-spacing:.04em;color:var(--muted)}
+.ticks .sk-mk{width:30px;height:30px}
+@media (prefers-reduced-motion:no-preference){.ticks li{animation:sk-mark-in .34s var(--ease-settle) calc(500ms + var(--i) * 140ms) both}}
+.missed{list-style:none;margin:0;padding:0;display:grid;gap:0;border-top:1px solid var(--line)}
+.missed li{display:grid;gap:4px;padding:14px 0;border-bottom:1px solid var(--line)}
+.missed b{font:600 16px/1.35 var(--font-display)}
+.missed span{color:var(--muted)}
+</style></head>
+<body>
+<main class="sk-page sk-enter" data-width="narrow">
+  <div class="sk-hero" data-layout="mark">
+    <div>
+      <div class="sk-label">Check yourself · sleep debt</div>
+      <h1 class="sk-title">Five questions on how sleep debt builds and clears</h1>
+      <p class="sk-lede">About two minutes. Every answer comes with the reason, right or wrong.</p>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="bed" data-sk-boil aria-label="A bed"></div>
+  </div>
+  <div class="sk-stack" style="--gap:10px">
+    <div class="sk-meter-head"><span id="qn">Question 1 of 5</span><b id="score"></b></div>
+    <div class="sk-meter" data-size="thin" data-tone="clay" style="--v:0" id="prog" role="progressbar" aria-label="Questions answered" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0"></div>
+  </div>
+  <form class="sk-quiz q" id="q">
+    <div class="sk-label">Question 1</div>
+    <h2 class="sk-h3" style="font-size:24px">How much sleep do most adults need to be at their best?</h2>
+    <fieldset>
+      <legend class="sk-sr">Answers</legend>
+      <label class="sk-radio"><input type="radio" name="a"><span>Five to six hours</span></label>
+      <label class="sk-radio" data-right><input type="radio" name="a"><span>Seven to nine hours</span></label>
+      <label class="sk-radio"><input type="radio" name="a"><span>Ten hours or more</span></label>
+      <label class="sk-radio"><input type="radio" name="a"><span>It depends only on habit</span></label>
+    </fieldset>
+    <div class="sk-quiz-foot"><button class="sk-btn" type="button" data-sk-check data-sk-next="Next question">Check answer</button><span class="sk-caption sk-keys">Press <kbd>1</kbd>–<kbd>4</kbd>, then <kbd>Enter</kbd></span></div>
+    <aside class="sk-callout" data-tone="good" data-sk-if="right" hidden><div class="sk-label">Right</div><h4>Seven to nine hours</h4><p>A few people do well on less, but far fewer than think they do.</p></aside>
+    <aside class="sk-callout" data-tone="bad" data-sk-if="wrong" hidden><div class="sk-label">Not quite</div><h4>Most adults need seven to nine</h4><p>A few people do well on less, but far fewer than think they do.</p></aside>
+  </form>
+</main>
+<script>
+(function () {
+  // the first question is in the page; the rest are built from this list. "short" names a question in the list of ones to look at again.
+  var Q = [
+    { short: 'How much sleep most adults need', q: 'How much sleep do most adults need to be at their best?', a: ['Five to six hours', 'Seven to nine hours', 'Ten hours or more', 'It depends only on habit'], right: 1 },
+    { short: 'How long a week of short nights takes to clear', q: 'You slept five hours a night for a week. How many good nights does it take to be fully sharp again?', a: ['One long night of ten hours', 'Two nights, like a weekend', 'More than a week of normal nights', 'None; you get used to less sleep'], right: 2,
+      yes: ['Recovery is slower than the debt', 'In lab studies, a week of short sleep still showed in reaction times after a week of normal nights. Two lie-ins help you feel better before you actually are.'], no: ['It takes more than a week', 'Lie-ins help you feel rested before your reaction times recover. In lab studies the slowdown was still there after a week of normal nights.'] },
+    { short: 'The clearest sign of sleep debt', q: 'Which of these is the clearest sign you are carrying sleep debt?', a: ['You wake once in the night', 'You fall asleep within five minutes of lying down', 'You feel slow after lunch', 'You remember your dreams'], right: 1,
+      yes: ['Falling asleep at once is a warning', 'Well-rested adults usually take ten to twenty minutes. Dropping off in under five, most nights, means you are short.'], no: ['Falling asleep at once is the sign', 'Well-rested adults usually take ten to twenty minutes. A dip after lunch and waking once are normal.'] },
+    { short: 'Whether coffee pays it back', q: 'Does coffee pay back sleep debt?', a: ['Yes, two cups are worth about an hour of sleep', 'Yes, if you drink it before noon', 'No, it hides the tiredness and the debt stays', 'Only if you also nap'], right: 2,
+      yes: ['It hides the debt, it does not pay it', 'Caffeine blocks the chemical that makes you feel sleepy. The debt is still there when it wears off.'], no: ['It hides the debt, it does not pay it', 'Caffeine blocks the chemical that makes you feel sleepy. The debt is still there when it wears off.'] },
+    { short: 'What clears it best', q: 'What clears a week of short nights best?', a: ['One very long lie-in', 'A long nap in the early evening', 'A regular bedtime, with an extra half hour or hour for a while', 'Staying up until you are exhausted'], right: 2,
+      yes: ['Steady and a little longer', 'A fixed wake time and an earlier bedtime for a week or two. Big lie-ins shift your body clock and make Monday worse.'], no: ['Steady and a little longer works best', 'A fixed wake time and an earlier bedtime for a week or two. Big lie-ins shift your body clock and make Monday worse.'] }
+  ];
+  var form = document.getElementById('q'), queue = [0, 1, 2, 3, 4], pos = 0, retry = false, got = [null, null, null, null, null];
+  var $ = function (id) { return document.getElementById(id); };
+  var WORDS = ['none', 'one', 'two', 'three', 'four', 'five'];
+  function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function rights() { return got.filter(function (g) { return g; }).length; }
+  function label(i) { return retry ? 'Question ' + (i + 1) + ' again, ' + (pos + 1) + ' of ' + queue.length : 'Question ' + (i + 1) + ' of 5'; }
+  function build(i) {
+    var x = Q[i], last = pos === queue.length - 1, h = '<div class="sk-label">Question ' + (i + 1) + '</div><h2 class="sk-h3" style="font-size:24px">' + esc(x.q) + '</h2><fieldset><legend class="sk-sr">Answers</legend>';
+    x.a.forEach(function (t, k) { h += '<label class="sk-radio"' + (k === x.right ? ' data-right' : '') + '><input type="radio" name="a"><span>' + esc(t) + '</span></label>'; });
+    h += '</fieldset><div class="sk-quiz-foot"><button class="sk-btn" type="button" data-sk-check data-sk-next="' + (last ? 'See how you did' : 'Next question') + '">Check answer</button><span class="sk-caption sk-keys">Press <kbd>1</kbd>–<kbd>4</kbd>, then <kbd>Enter</kbd></span></div>';
+    var yes = x.yes || [x.a[x.right], ''], no = x.no || yes;
+    h += '<aside class="sk-callout" data-tone="good" data-sk-if="right" hidden><div class="sk-label">Right</div><h4>' + esc(yes[0]) + '</h4><p>' + esc(yes[1]) + '</p></aside>';
+    h += '<aside class="sk-callout" data-tone="bad" data-sk-if="wrong" hidden><div class="sk-label">Not quite</div><h4>' + esc(no[0]) + '</h4><p>' + esc(no[1]) + '</p></aside>';
+    return h;
+  }
+  function progress(done) { var p = $('prog'); p.style.setProperty('--v', done / queue.length); p.setAttribute('aria-valuenow', done); p.setAttribute('aria-valuemax', queue.length); }
+  function show(html, head, after) {
+    form.classList.add('out');
+    setTimeout(function () {
+      var f = document.createElement('form'); f.className = 'sk-quiz q out'; f.id = 'q'; f.innerHTML = html;
+      form.replaceWith(f); form = f; Sketchbook.mount(f.parentNode);
+      Sketchbook.set($('qn'), head);
+      if (f.getBoundingClientRect().top < 0) f.scrollIntoView({ block: 'start' });
+      requestAnimationFrame(function () { requestAnimationFrame(function () { f.classList.remove('out'); var b = f.querySelector('button'); if (b) b.focus({ preventScroll: true }); if (after) after(f); }); });
+    }, 220);
+  }
+  // the finish: the score counts up, a mark lands for each question in turn, then the ones to look at again with their answers
+  function finish() {
+    var n = rights(), missed = [];
+    got.forEach(function (g, i) { if (!g) missed.push(i); });
+    var h = '<div class="end"><div class="sk-label">How you did</div><div class="end-top"><div class="sk-num" id="endN">0<small> of 5 right</small></div><ol class="ticks" aria-label="Question by question">';
+    got.forEach(function (g, i) { h += '<li style="--i:' + i + '">' + Sketchbook.mark(g ? 'yes' : 'no', 7 + i) + '<span>Q' + (i + 1) + '</span><span class="sk-sr">' + (g ? 'right' : 'not right') + '</span></li>'; });
+    h += '</ol></div><p>' + (n === 5 ? 'All five. You know how sleep debt works better than most: it builds fast, clears slowly, and coffee only hides it.' : 'The short version: sleep debt builds fast, clears slowly, and coffee only hides it. A steady bedtime does more than a big lie-in.') + '</p>';
+    if (missed.length) {
+      h += '<div class="sk-stack" style="--gap:10px"><div class="sk-label">The ' + (missed.length === 1 ? 'one' : WORDS[missed.length]) + ' to look at again</div><ul class="missed">';
+      missed.forEach(function (i) { h += '<li><b>' + esc(Q[i].short) + '</b><span>The answer: ' + esc(Q[i].a[Q[i].right]) + '.</span></li>'; });
+      h += '</ul></div><div><button class="sk-btn" type="button" id="again" data-sk-arrow>' + (missed.length === 1 ? 'Try that one again' : 'Try those ' + WORDS[missed.length] + ' again') + '</button></div>';
+    } else h += '<div><button class="sk-btn" type="button" id="again" data-sk-ghost>Start again</button></div>';
+    h += '</div>';
+    Sketchbook.set($('score'), '');
+    show(h, 'All five answered', function (f) {
+      var el = f.querySelector('#endN'), k = 0;
+      if (!n || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { el.firstChild.nodeValue = n; return; }
+      var t = setInterval(function () { k++; el.firstChild.nodeValue = k; if (k >= n) clearInterval(t); }, 520 / n);
+    });
+  }
+  document.addEventListener('sk:answer', function (e) {
+    got[queue[pos]] = e.detail.right;
+    Sketchbook.set($('score'), rights() + ' right so far');
+    progress(pos + 1);
+  });
+  document.addEventListener('sk:next', function () {
+    if (pos < queue.length - 1) { pos++; progress(pos); show(build(queue[pos]), label(queue[pos])); return; }
+    finish();
+  });
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('#again')) return;
+    var missed = []; got.forEach(function (g, i) { if (!g) missed.push(i); });
+    retry = missed.length > 0;
+    queue = retry ? missed : [0, 1, 2, 3, 4]; pos = 0;
+    if (!retry) got = [null, null, null, null, null];
+    Sketchbook.set($('score'), retry ? rights() + ' right so far' : ''); progress(0);
+    show(build(queue[0]), label(queue[0]));
+  });
+})();
+</script>
+</body>
+</html>

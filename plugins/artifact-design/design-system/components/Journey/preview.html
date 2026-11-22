@@ -1,0 +1,57 @@
+<!-- @dsCard group="Pages" height=1650 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}</style></head>
+<body>
+<main class="sk-page sk-enter">
+  <div class="sk-hero">
+    <div>
+      <div class="sk-row" style="--gap:12px"><span class="sk-live">Moving</span><span class="sk-label">Package 1Z 84F 03A 22 · last scan 8:48 PM</span></div>
+      <h1 class="sk-title">Your package is in Bayonne and arrives tomorrow by 7 pm</h1>
+      <p class="sk-lede">It flew from Louisville to Newark last night and reached the local depot this evening. One stop left: your door.</p>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="map box" data-sk-boil aria-label="A map and a parcel"></div>
+  </div>
+
+  <section class="sk-section">
+    <header><div class="sk-label">The route</div><h2 class="sk-h2">Three of four legs done</h2></header>
+    <ol class="sk-timeline" data-dir="row">
+      <li data-state="done"><time>Wed 3:12 PM</time><h4>Louisville, KY</h4><p>Left the main air hub.</p></li>
+      <li data-state="done"><time>Wed 11:40 PM</time><h4>Newark, NJ</h4><p>Landed and sorted.</p></li>
+      <li data-state="now"><time>Thu 8:48 PM</time><h4>Bayonne, NJ</h4><p>At the local depot.</p></li>
+      <li data-state="next"><time>Fri by 7 PM</time><h4>Your door</h4><p>Hell's Kitchen, New York.</p></li>
+    </ol>
+  </section>
+
+  <section class="sk-section sk-two" data-top>
+    <div class="sk-stack" style="--gap:10px">
+      <div class="sk-label">Arrives</div>
+      <div class="sk-num">Fri<small>by 7 pm</small></div>
+      <p>Most deliveries on this route come between 2 and 5 pm. Nobody needs to sign.</p>
+      <div class="sk-row" style="margin-top:10px"><button class="sk-btn" data-sk-open="#leave">Leave instructions</button><button class="sk-btn" data-sk-ghost data-sk-copy-text="Package 1Z 84F 03A 22 arrives Friday by 7 pm in Hell's Kitchen. Last scan: the Bayonne depot, Thursday 8:48 PM." data-sk-copied="Copied where it is and when it arrives">Copy tracking</button></div>
+      <p class="sk-small" id="noteShown" hidden></p>
+    </div>
+    <div class="sk-stack" style="--gap:16px">
+      <div class="sk-label">Every scan</div>
+      <ol class="sk-timeline" data-order="desc">
+        <li data-state="now"><time>Thu, Oct 29 · 8:48 PM</time><h4>Arrived at the Bayonne depot</h4></li>
+        <li data-state="done"><time>Thu, Oct 29 · 2:05 PM</time><h4>Left the Newark hub</h4></li>
+        <li data-state="done"><time>Wed, Oct 28 · 11:40 PM</time><h4>Arrived at Newark</h4><p>Flight 2948 from Louisville.</p></li>
+        <li data-state="done"><time>Wed, Oct 28 · 3:12 PM</time><h4>Left Louisville Worldport</h4></li>
+        <li data-state="done"><time>Tue, Oct 27 · 6:30 PM</time><h4>Picked up from the seller</h4></li>
+      </ol>
+    </div>
+  </section>
+  <dialog class="sk-dialog" id="leave"><button class="sk-x" data-sk-close aria-label="Close"></button><h3>Where should they leave it?</h3><p class="sk-small">The driver sees this at your door.</p>
+    <div class="sk-field" style="margin-top:16px"><label for="note">Instructions</label><textarea class="sk-input" id="note">With the doorman, please.</textarea></div>
+    <footer><button class="sk-btn" data-sk-ghost data-sk-close>Cancel</button><button class="sk-btn" data-sk-close id="saveNote">Save</button></footer></dialog>
+</main>
+<script>
+document.getElementById('saveNote').addEventListener('click', function () {
+  var v = document.getElementById('note').value.trim(), out = document.getElementById('noteShown');
+  out.hidden = !v; out.textContent = v ? 'For the driver: ' + v : '';
+  Sketchbook.toast(v ? 'The driver will see your note' : 'Note removed');
+});
+</script>
+</body>
+</html>

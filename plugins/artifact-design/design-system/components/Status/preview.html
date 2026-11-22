@@ -1,0 +1,67 @@
+<!-- @dsCard group="Pages" height=2390 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}</style></head>
+<body>
+<main class="sk-page sk-enter">
+  <div class="sk-hero" data-layout="mark">
+    <div>
+      <div class="sk-row" style="--gap:12px"><span class="sk-pill" data-tone="warn" data-dot>At risk</span><span class="sk-label">Status · Friday, November 6</span></div>
+      <h1 class="sk-title">API v2 is 60% moved, and two things could slip the November 20 launch</h1>
+      <p class="sk-lede">Reads are done. Writes are a third done. The SDKs can't ship until the auth change lands, and that's waiting on security review.</p>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="flag" data-sk-boil aria-label="A flag on a pole"></div>
+  </div>
+
+  <div class="sk-stack" style="--gap:10px">
+    <div class="sk-meter-head"><span>Endpoints moved to v2</span><b>18 of 30</b></div>
+    <div class="sk-meter" data-size="thick" style="--v:.6;--goal:.8" data-sk-goal="Plan for today" role="meter" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" aria-label="Endpoints moved"></div>
+    <div class="sk-row" data-between><span class="sk-caption">We planned to be at 24 of 30 by today.</span><span class="sk-caption">Launch Nov 20</span></div>
+  </div>
+
+  <div class="sk-stats">
+    <div class="sk-stat"><div class="sk-label">Days to launch</div><div class="sk-stat-v">14</div><p>Code freeze on Nov 17.</p></div>
+    <div class="sk-stat"><div class="sk-label">Clients on v2</div><div class="sk-stat-v">41<small>%</small></div><span class="sk-delta" data-dir="up">9 pts <span>this week</span></span></div>
+    <div class="sk-stat"><div class="sk-label">v2 error rate</div><div class="sk-stat-v">0.21<small>%</small></div><span class="sk-delta" data-dir="down" data-tone="good">0.08 pts <span>this week</span></span></div>
+    <div class="sk-stat" data-sk-key><div class="sk-label">Open blockers</div><div class="sk-stat-v">2</div><p>Both on the write path.</p></div>
+  </div>
+
+  <section class="sk-section">
+    <header><div class="sk-label">Milestones</div><h2 class="sk-h2">Where we are on the plan</h2></header>
+    <ol class="sk-timeline" data-dir="row">
+      <li data-state="done"><time>Sep 15</time><h4>Design signed off</h4><p>New auth, paging and errors.</p></li>
+      <li data-state="done"><time>Oct 10</time><h4>Read endpoints</h4><p>All 12 live on v2.</p></li>
+      <li data-state="now"><time>Nov 4 → Nov 12</time><h4>Write endpoints</h4><p>12 of 18 left.</p></li>
+      <li data-state="next"><time>Nov 14</time><h4>SDKs released</h4><p>Python, Node, Go.</p></li>
+      <li data-state="next"><time>Nov 20</time><h4>Launch</h4><p>v1 stays up until March.</p></li>
+    </ol>
+  </section>
+
+  <section class="sk-section">
+    <header><div class="sk-label">Blockers</div><h2 class="sk-h2">Two things need a decision this week</h2></header>
+    <div class="sk-grid" style="--min:300px">
+      <aside class="sk-callout" data-tone="warn"><span class="sk-spot" data-sk-draw="shield"></span><div class="sk-label">Security review · Priya</div><h4>The token change is waiting on review</h4><p>Every write endpoint needs it. If review isn't done by Tuesday, launch moves to December 2.</p></aside>
+      <aside class="sk-callout" data-tone="warn"><span class="sk-spot" data-sk-draw="database"></span><div class="sk-label">Billing team · Marco</div><h4>Invoices still read from the v1 tables</h4><p>We need one day of their time to switch the report over, or a read-only copy for a month.</p></aside>
+    </div>
+  </section>
+
+  <section class="sk-section" data-mode="rail">
+    <header><div class="sk-label">This week</div><h2 class="sk-h2">What's done and what's next</h2></header>
+      <ul class="sk-tasks">
+        <li><label class="sk-check"><input type="checkbox" checked><span>Move the orders endpoints</span></label><span class="sk-pill" data-tone="line">Dana</span></li>
+        <li><label class="sk-check"><input type="checkbox" checked><span>Error format matches the spec</span></label><span class="sk-pill" data-tone="line">Lee</span></li>
+        <li><label class="sk-check"><input type="checkbox"><span>Move refunds and payouts</span></label><span class="sk-pill" data-tone="line">Dana</span></li>
+        <li><label class="sk-check"><input type="checkbox"><span>Draft the migration guide</span></label><span class="sk-pill" data-tone="line">Sam</span></li>
+      </ul>
+  </section>
+
+  <section class="sk-section sk-two" data-mode="band" data-tone="oat">
+    <div class="sk-stack" style="--gap:12px"><div class="sk-label">The ask</div><h2 class="sk-statement">One day of the billing team's time, <em>next week.</em></h2></div>
+    <div class="sk-stack" style="--gap:18px;align-self:center">
+      <p class="sk-lede">Approve it and the invoices move off the v1 tables. Everything else is on track or already moving.</p>
+      <div class="sk-row"><button class="sk-btn" data-sk-copy-text="Yes, take the day next week for the billing work." data-sk-copied="Copied a yes. Paste it in your reply.">Copy a yes</button><button class="sk-btn" data-sk-ghost data-sk-copy-text="Can we talk about the billing day on Monday before you book it?" data-sk-copied="Copied. Paste it in your reply.">Ask to talk Monday</button></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

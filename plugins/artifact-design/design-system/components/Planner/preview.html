@@ -1,0 +1,65 @@
+<!-- @dsCard group="Pages" height=1800 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}</style></head>
+<body>
+<main class="sk-page sk-enter" data-width="wide">
+  <div class="sk-hero" data-layout="mark">
+    <div>
+      <div class="sk-row" style="--gap:12px"><span class="sk-pill" data-tone="clay" data-dot data-live>This week</span><span class="sk-label">Launch week · 16 to 20 November</span></div>
+      <h1 class="sk-title">Launch is Friday at 10. Thursday's go or no-go decides it.</h1>
+      <p class="sk-lede">Everything else this week feeds that meeting. Code freezes Wednesday afternoon, so fixes need to land by lunch.</p>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="calendar" data-sk-boil aria-label="A calendar page"></div>
+  </div>
+
+  <section class="sk-section">
+    <header><div class="sk-label">The week</div><h2 class="sk-h2">Five days, one decision</h2></header>
+    <div class="sk-week" data-from="9" data-to="18" data-now="Wed 11:20" aria-label="Launch week calendar">
+      <section data-day="Mon" data-date="16">
+        <article data-at="9:00-9:30" data-tone="line">Stand-up</article>
+        <article data-at="10:00-12:00">Final copy review<span>Pricing page and the email</span></article>
+        <article data-at="14:00-15:30">Load test<span>Twice last year's peak</span></article>
+      </section>
+      <section data-day="Tue" data-date="17">
+        <article data-at="9:00-9:30" data-tone="line">Stand-up</article>
+        <article data-at="9:30-12:30" data-tone="ink">Fix what the load test found<span>Heads down, no meetings</span></article>
+        <article data-at="13:00-14:00">Lunch with support</article>
+        <article data-at="15:00-16:00">Help pages walkthrough</article>
+      </section>
+      <section data-day="Wed" data-date="18">
+        <article data-at="9:00-9:30" data-tone="line">Stand-up</article>
+        <article data-at="10:00-11:00">Security sign-off</article>
+        <article data-at="10:30-11:30">Press briefing<span>Embargo to Friday 10:00</span></article>
+        <article data-at="13:00-18:00" data-tone="ink">Code freeze<span>No merges without Priya</span></article>
+      </section>
+      <section data-day="Thu" data-date="19">
+        <article data-at="9:00-9:30" data-tone="line">Stand-up</article>
+        <article data-at="11:00-12:00" data-tone="clay">Go or no-go<span>Everyone who owns a box below</span></article>
+        <article data-at="14:00-15:00">Support dry run</article>
+      </section>
+      <section data-day="Fri" data-date="20">
+        <article data-at="9:00-9:30">Last checks</article>
+        <article data-at="10:00-10:30" data-tone="ink">Launch</article>
+        <article data-at="10:30-17:00" data-tone="line">Watch the dashboards<span>Two people on at all times</span></article>
+      </section>
+    </div>
+  </section>
+
+  <section class="sk-section sk-two" data-top>
+    <div class="sk-stack" style="--gap:14px">
+      <header class="sk-stack" style="--gap:6px"><div class="sk-label">By Thursday at 11</div><h2 class="sk-h2">What has to be true for a yes</h2></header>
+      <p class="sk-measure">Each owner says yes or no in the room. One no and we move the launch to the following Tuesday, which the press embargo allows.</p>
+      <aside class="sk-sticky"><p>Book the Tuesday slot with the press team now, just in case. It costs nothing to cancel.</p></aside>
+    </div>
+    <ul class="sk-tasks">
+      <li><label class="sk-check"><input type="checkbox" checked><span>Load test passes at twice last year's peak</span></label><span class="sk-pill" data-tone="line">Sam</span></li>
+      <li><label class="sk-check"><input type="checkbox" checked><span>Pricing page and email signed off</span></label><span class="sk-pill" data-tone="line">Ana</span></li>
+      <li><label class="sk-check"><input type="checkbox"><span>Security sign-off</span></label><span class="sk-pill" data-tone="warn">Wednesday</span></li>
+      <li><label class="sk-check"><input type="checkbox"><span>Support has run the dry run</span></label><span class="sk-pill" data-tone="line">Thursday</span></li>
+      <li><label class="sk-check"><input type="checkbox"><span>Rollback tested on staging</span></label><span class="sk-pill" data-tone="line">Kai</span></li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

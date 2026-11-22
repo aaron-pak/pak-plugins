@@ -1,0 +1,15 @@
+{
+  "name": "effort-keywords",
+  "description": "Keywords that set the effort of one turn, the way ultrathink does: type superthink or hthink anywhere in a prompt to run that turn at high effort, midthink or mthink for medium, or xthink for xhigh. The session's own effort is left alone, so the next turn runs as before. Add or change keywords in /config. Claude Code only.",
+  "author": {
+    "name": "Aaron Pak"
+  },
+  "userConfig": {
+    "keywords": {
+      "type": "string",
+      "title": "Effort keywords",
+      "description": "Each keyword and the effort it sets for its turn, as word=level, separated by commas. Levels: low, medium, high, xhigh, max. A keyword matches as a whole word in any case, as ultrathink does.",
+      "default": "superthink=high, midthink=medium, hthink=high, mthink=medium, xthink=xhigh"
+    }
+  }
+}

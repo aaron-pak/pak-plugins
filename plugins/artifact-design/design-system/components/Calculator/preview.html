@@ -1,0 +1,80 @@
+<!-- @dsCard group="Pages" height=1700 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}
+.calc-out{display:grid;gap:18px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-card);padding:26px}
+.calc-out .sk-num{font-size:64px}
+</style></head>
+<body>
+<main class="sk-page sk-enter" data-width="wide">
+  <div class="sk-hero" data-layout="mark">
+    <div>
+      <div class="sk-label">Mortgage</div>
+      <h1 class="sk-title">What a home really costs each month</h1>
+      <p class="sk-lede">Move the numbers. The monthly total, the split and the payoff date update as you go.</p>
+    </div>
+    <div class="sk-hero-art" data-sk-draw="house" data-sk-boil aria-label="A house"></div>
+  </div>
+
+  <div class="sk-split" style="--side:380px">
+    <div class="sk-stack" style="--gap:28px">
+      <div class="sk-grid" style="--min:220px;--gap:22px">
+        <div class="sk-field"><label for="price">Home price</label><div class="sk-affix"><span>$</span><input class="sk-input" id="price" inputmode="numeric" value="520,000"></div></div>
+        <div class="sk-field"><label for="rate">Interest rate</label><div class="sk-affix"><input class="sk-input" id="rate" inputmode="decimal" value="6.4"><span>%</span></div><div class="sk-help">Today's 30-year average is about 6.4%.</div></div>
+      </div>
+      <div class="sk-field"><label for="down">Down payment <output for="down">10%</output></label><input class="sk-range" type="range" id="down" min="3" max="40" value="10" data-sk-format='{"suffix":"%"}'><div class="sk-range-ends"><span>3%</span><span>40%</span></div></div>
+      <div class="sk-field"><div class="sk-field-label">Loan length</div><div class="sk-seg" id="term"><button value="15">15 years</button><button value="30" aria-checked="true">30 years</button></div></div>
+      <div class="sk-grid" style="--min:220px;--gap:22px">
+        <div class="sk-field"><label for="tax">Property tax, yearly</label><div class="sk-affix"><span>$</span><input class="sk-input" id="tax" value="6,200"></div></div>
+        <div class="sk-field"><label for="ins">Insurance, yearly</label><div class="sk-affix"><span>$</span><input class="sk-input" id="ins" value="1,800"></div></div>
+      </div>
+      <label class="sk-switch"><input type="checkbox" class="sk-toggle" id="extra" role="switch"> Pay $200 extra each month</label>
+    </div>
+    <aside class="sk-side">
+      <div class="calc-out" id="result" aria-live="polite">
+        <div class="sk-label">Each month</div>
+        <div class="sk-num" id="monthly">$3,828</div>
+        <div data-sk-chart="stack" id="split" data-sk-format='{"prefix":"$"}' aria-label="Where each payment goes" data-sk-data='[["Loan",2927],["Tax",517],["Insurance",150],["Mortgage insurance",234]]'></div>
+        <hr>
+        <dl class="sk-dl"><dt>Paid off</dt><dd id="payoff">Nov 2056</dd><dt>Total interest</dt><dd id="interest">$586,000</dd><dt>PMI stops</dt><dd id="pmi">Sep 2034</dd></dl>
+      </div>
+      <p class="sk-caption">Estimates only. Mortgage insurance is about 0.6% of the loan a year until you owe less than 80% of the price.</p>
+    </aside>
+  </div>
+
+  <section class="sk-section">
+    <header><div class="sk-label">Over the years</div><h2 class="sk-h2">What you still owe falls slowly at first, then fast</h2></header>
+    <div data-sk-chart="line" id="curve" data-sk-h="260" data-sk-format='{"prefix":"$"}' aria-label="Balance left over time" data-sk-data='{"x":["2026","2027","2028","2029","2030","2031","2032","2033","2034","2035","2036","2037","2038","2039","2040","2041","2042","2043","2044","2045","2046","2047","2048","2049","2050","2051","2052","2053","2054","2055","2056"],"series":[{"name":"Balance","values":[468000,462669,456987,450930,444474,437592,430257,422438,414104,405221,395752,385659,374901,363434,351211,338182,324294,309492,293713,276895,258968,239859,219491,197781,174639,149973,123680,95655,65782,33940,0]}]}'></div>
+  </section>
+  <div class="sk-dock" data-sk-for="#monthly" aria-hidden="true"><span class="sk-caption">Each month</span><b id="dock">$3,828</b></div>
+  <details class="sk-details"><summary>How this is worked out</summary><div><p>The loan payment uses the standard formula for a fixed-rate loan: the rate per month, the number of months, and the amount borrowed. Tax and insurance are your yearly numbers divided by twelve.</p><p>Mortgage insurance is added while the loan is above 80% of the price, which is when most lenders drop it.</p></div></details>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var num = function (el) { return parseFloat(String(el.value).replace(/[^\d.]/g, '')) || 0; };
+  var term = 30;
+  function calc() {
+    var price = num($('price')), downP = +$('down').value / 100, rate = num($('rate')) / 100 / 12, n = term * 12;
+    var loan = price * (1 - downP), pay = rate ? loan * rate / (1 - Math.pow(1 + rate, -n)) : loan / n;
+    var extra = $('extra').checked ? 200 : 0, tax = num($('tax')) / 12, ins = num($('ins')) / 12;
+    var bal = loan, m = 0, interest = 0, pmiM = 0, years = [];
+    while (bal > 0 && m < n) { var i = bal * rate; interest += i; bal -= pay + extra - i; m++; if (!pmiM && bal <= price * 0.8) pmiM = m; if (m % 12 === 0 || bal <= 0) years.push(Math.max(0, Math.round(bal))); }
+    var pmi = downP < 0.2 ? loan * 0.006 / 12 : 0;
+    var when = function (k) { var d = new Date(2026, 10 + k, 1); return d.toLocaleString('en-US', { month: 'short', year: 'numeric' }); };
+    var total = Sketchbook.format(pay + extra + tax + ins + pmi, { prefix: '$' });
+    Sketchbook.set($('monthly'), total);
+    $('dock').textContent = total;
+    $('payoff').textContent = when(m); $('interest').textContent = Sketchbook.format(Math.round(interest / 1000) * 1000, { prefix: '$' });
+    $('pmi').textContent = pmi ? when(pmiM) : 'None';
+    Sketchbook.update($('split'), [['Loan', Math.round(pay + extra)], ['Tax', Math.round(tax)], ['Insurance', Math.round(ins)]].concat(pmi ? [['Mortgage insurance', Math.round(pmi)]] : []));
+    var xs = [], vals = [loan]; years.forEach(function (v, k) { vals.push(v); }); vals.forEach(function (_, k) { xs.push(String(2026 + k)); });
+    Sketchbook.update($('curve'), { x: xs, series: [{ name: 'Balance', values: vals.map(Math.round) }] });
+  }
+  ['price', 'rate', 'down', 'tax', 'ins', 'extra'].forEach(function (id) { $(id).addEventListener('input', calc); });
+  $('term').addEventListener('sk:change', function (e) { term = +e.detail.value; calc(); });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', calc); else calc();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+{
+  "name": "pak-plugins",
+  "owner": {
+    "name": "Aaron Pak"
+  },
+  "metadata": {
+    "description": "Aaron's personal skills as plugins for Claude Code and Codex."
+  },
+  "plugins": [
+    {
+      "name": "artifact-design",
+      "source": "./plugins/artifact-design",
+      "strict": false,
+      "description": "HTML artifacts in the Sketchbook design system: Artifact and ArtifactCheck MCP tools that publish pages (reports, explainers, plans, dashboards, tools, decks) on this machine and check them, with skills for pages, diagrams and charts. Built on Anthropic's Claude Code artifact skills."
+    },
+    {
+      "name": "auto-memory",
+      "source": "./plugins/auto-memory",
+      "strict": false,
+      "description": "Claude Code's auto memory for Codex only: the same memory prompt, MEMORY.md index, and memory_list, memory_read and memory_write tools, over one store in ~/.agents/memory that Claude Code's own auto memory can share. Its dream skill, in Claude Code too, checks the memory against recent sessions of both and fixes it, one Git commit at a time. From Anthropic's Claude Code and Claude cookbooks."
+    },
+    {
+      "name": "create-skill",
+      "source": "./plugins/create-skill",
+      "strict": false,
+      "description": "Write or revise an agent skill so it gives the model only the guidance it needs: start thin, write for the user's intent, and offer your own ideas as proposals the user picks from."
+    },
+    {
+      "name": "deeper-task",
+      "source": "./plugins/deeper-task",
+      "strict": false,
+      "description": "Ask for a deeper version of a task, not a bigger one: what an expert would do, the rawest material, their methods and tools, and an outside check, then a rewritten prompt. From Felix Rieseberg."
+    },
+    {
+      "name": "effort-keywords",
+      "source": "./plugins/effort-keywords",
+      "description": "Keywords that set the effort of one turn, the way ultrathink does: type superthink or hthink anywhere in a prompt to run that turn at high effort, midthink or mthink for medium, or xthink for xhigh. The session's own effort is left alone, so the next turn runs as before. Add or change keywords in /config. Claude Code only."
+    },
+    {
+      "name": "eli5",
+      "source": "./plugins/eli5",
+      "strict": false,
+      "description": "Explain a topic to a complete beginner as an HTML artifact with big pictures and few words."
+    },
+    {
+      "name": "evals",
+      "source": "./plugins/evals",
+      "strict": false,
+      "description": "Build, run and hillclimb evals for anything that shapes what an agent does: a plugin, skill, MCP server, instruction file, system prompt or model. One command says what a suite needs next, and results are kept, named and reused, so a change is measured against a baseline without running the baseline again. Its own runner works under Claude Code or Codex, with Opus judges, cases cut from real sessions and paired comparisons."
+    },
+    {
+      "name": "frontend-skill",
+      "source": "./plugins/frontend-skill",
+      "strict": false,
+      "description": "Design visually strong landing pages, websites, apps, prototypes, and game UI with restrained composition and tasteful motion. From OpenAI."
+    },
+    {
+      "name": "implement-with-notes",
+      "source": "./plugins/implement-with-notes",
+      "strict": false,
+      "description": "Implement a spec while keeping a running implementation-notes.html of design decisions, deviations, tradeoffs, and open questions."
+    },
+    {
+      "name": "learn-how-i-write",
+      "source": "./plugins/learn-how-i-write",
+      "strict": false,
+      "description": "Learn how you write from writing you point at (files, pasted text, docs, sent mail or messages) and save it as a reusable style profile, then restyle another piece, from a paper to an email, to sound like you without changing what it says. From Anthropic's Claude Duet."
+    },
+    {
+      "name": "pakstack",
+      "source": "./plugins/pakstack",
+      "strict": false,
+      "description": "Small skills for how Aaron works with agents, such as interview, which questions the user until you both agree on what they want and why. Also carries skills that began as Theo Browne's tstack, such as full-send, which takes a change to a merged pull request."
+    },
+    {
+      "name": "show-me",
+      "source": "./plugins/show-me",
+      "strict": false,
+      "description": "Explain the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts. From HumanLayer."
+    }
+  ]
+}

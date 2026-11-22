@@ -1,0 +1,81 @@
+<!-- @dsCard group="Pages" height=3180 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{margin:0}
+</style></head>
+<body>
+<main class="sk-page sk-enter">
+  <div class="sk-hero">
+    <div>
+      <div class="sk-label">Stats 101 · study notes, week 6</div>
+      <h1 class="sk-title">Hypothesis tests, on one page</h1>
+      <p class="sk-lede">The idea, the five steps, one worked example, the two ways to be wrong, and cards to test yourself the night before.</p>
+    </div>
+    <div class="sk-hero-art" data-sk-shape="tile" data-sk-draw="book pencil bulb" data-sk-boil aria-label="A book, a pencil and a light bulb"></div>
+  </div>
+
+  <section class="sk-section" data-mode="band" data-tone="sage">
+    <div class="sk-label">The idea in one sentence</div>
+    <p class="sk-statement">A p-value is how surprising your data would be <em>if nothing were going on.</em></p>
+  </section>
+
+  <section class="sk-section">
+    <header><div class="sk-label">The routine</div><h2 class="sk-h2">Five steps, the same every time</h2></header>
+    <div class="sk-flow" data-sk-flow='[["doc","Hypotheses","choose a"],["scale","Test","work out the"],["chart","Statistic","look up its"],["gauge","p-value","compare with α"],["check","Decision"]]'></div>
+  </section>
+
+  <section class="sk-section sk-two" data-top>
+    <div class="sk-stack" style="--gap:12px">
+      <header class="sk-stack" style="--gap:6px"><div class="sk-label">Worked example</div><h2 class="sk-h2">Is the coin fair? 62 heads in 100 flips</h2></header>
+      <p>If the coin is fair we expect 50 heads, give or take 5 (the standard deviation is √(100 × 0.5 × 0.5) = 5). We got 62, which is 2.4 standard deviations above.</p>
+      <div class="sk-formula"><span>z = (62 − 50) ÷ 5 = <b>2.4</b></span><span>p ≈ <b>0.02</b> <small>both tails</small></span></div>
+      <p>At α = 0.05 that is surprising enough: reject “the coin is fair”. The exact count from the binomial gives p = 0.021, close to the shortcut.</p>
+    </div>
+    <div class="sk-stack" style="--gap:10px">
+      <div class="sk-label">Heads in 100 fair flips, % of the time</div>
+      <div data-sk-chart="bars" data-sk-h="230" data-sk-format='{"suffix":"%","decimals":1}' data-sk-key="36,37,38,62,63,64" data-sk-ticks="38,44,50,56,62" aria-label="Chance of each number of heads in 100 flips of a fair coin" data-sk-data='[["36",0.16],["37",0.27],["38",0.45],["39",0.71],["40",1.08],["41",1.59],["42",2.23],["43",3.01],["44",3.9],["45",4.85],["46",5.8],["47",6.66],["48",7.35],["49",7.8],["50",7.96],["51",7.8],["52",7.35],["53",6.66],["54",5.8],["55",4.85],["56",3.9],["57",3.01],["58",2.23],["59",1.59],["60",1.08],["61",0.71],["62",0.45],["63",0.27],["64",0.16]]'></div>
+      <p class="sk-caption">Clay: as far from 50 as our 62, or further. Each of those bars is under half a percent; with the rest of the tails they add up to 2.1%.</p>
+    </div>
+  </section>
+
+  <section class="sk-section" data-mode="rail">
+    <header><div class="sk-label">Two ways to be wrong</div><h2 class="sk-h2">What you decide against what's true</h2><p class="sk-small">α is the false alarm rate you choose. Power is the chance of catching a real effect, usually aimed at 80%.</p></header>
+    <div class="sk-quad" data-kind="table" aria-label="Decisions against the truth">
+      <p class="sk-quad-corner">What's true ↓<br>What you decide →</p>
+      <p class="sk-quad-x"><span>Keep “nothing going on”</span><span>Reject it</span></p>
+      <p class="sk-quad-y"><span>Nothing going on</span><span>A real effect</span></p>
+      <div class="sk-quad-cell"><h4>Right</h4><p>Nothing was going on, and you said so.</p></div>
+      <div class="sk-quad-cell" data-key><div class="sk-label">Type I error</div><h4>A false alarm</h4><p>You reject, but nothing was going on. Happens α of the time.</p></div>
+      <div class="sk-quad-cell" data-key><div class="sk-label">Type II error</div><h4>A miss</h4><p>There was an effect and you didn't see it. Happens β of the time.</p></div>
+      <div class="sk-quad-cell"><h4>Right, and the point</h4><p>You find the real effect. This is power, 1 − β.</p></div>
+    </div>
+  </section>
+
+  <section class="sk-section">
+    <header><div class="sk-label">Night before</div><h2 class="sk-h2">Turn the cards over</h2><p>Say the answer out loud first, then click to check.</p></header>
+    <div class="sk-flips">
+      <button class="sk-flip"><div><div class="sk-label">Term</div><h4>p-value</h4></div><div><div class="sk-label">Answer</div><p>The chance of data at least this extreme if the null hypothesis is true. Not the chance the null is true.</p></div></button>
+      <button class="sk-flip"><div><div class="sk-label">Term</div><h4>Significance level, α</h4></div><div><div class="sk-label">Answer</div><p>The cut-off you set before looking, often 0.05. It is also your false alarm rate.</p></div></button>
+      <button class="sk-flip"><div><div class="sk-label">Term</div><h4>Power</h4></div><div><div class="sk-label">Answer</div><p>The chance the test finds an effect that really exists. Bigger samples and bigger effects raise it.</p></div></button>
+      <button class="sk-flip"><div><div class="sk-label">Term</div><h4>95% confidence interval</h4></div><div><div class="sk-label">Answer</div><p>A range built so that 95 of every 100 such ranges contain the true value.</p></div></button>
+    </div>
+  </section>
+
+  <section class="sk-section" data-mode="band">
+    <form class="sk-quiz" style="max-width:640px">
+      <div class="sk-label">Check yourself</div>
+      <h2 class="sk-h3" style="font-size:24px">A test gives p = 0.03. Which of these is true?</h2>
+      <fieldset>
+        <legend class="sk-sr">Answers</legend>
+        <label class="sk-radio"><input type="radio" name="s1"><span>There's a 3% chance the null hypothesis is true</span></label>
+        <label class="sk-radio" data-right><input type="radio" name="s1"><span>If the null were true, data this extreme would turn up 3% of the time</span></label>
+        <label class="sk-radio"><input type="radio" name="s1"><span>The effect is large</span></label>
+      </fieldset>
+      <div class="sk-quiz-foot"><button class="sk-btn" type="button" data-sk-check>Check</button></div>
+      <aside class="sk-callout" data-tone="good" data-sk-if="right" hidden><div class="sk-label">Right</div><p>The p-value is about the data, given the null. It says nothing about how big the effect is.</p></aside>
+      <aside class="sk-callout" data-tone="bad" data-sk-if="wrong" hidden><div class="sk-label">Not quite</div><p>The p-value assumes the null is true, so it can't also be the chance that it is. And a tiny effect can have a small p with enough data.</p></aside>
+    </form>
+  </section>
+</main>
+</body>
+</html>

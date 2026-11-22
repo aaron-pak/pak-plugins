@@ -1,0 +1,28 @@
+<!-- @dsCard group="Controls" height=521 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{padding:26px 30px 30px;margin:0}</style></head>
+<body>
+<form class="sk-wizard" data-sk-send="Book the repair" novalidate style="max-width:640px">
+  <fieldset data-step="Bike">
+    <legend>What needs fixing?</legend>
+    <div class="sk-choices" data-cards role="radiogroup" aria-labelledby="fixL"><span class="sk-field-label" id="fixL">Repair</span>
+      <label class="sk-radio"><input type="radio" name="fix" value="flat" required data-sk-msg="Pick a repair, so we know how long to keep the bike."><span>A flat tyre<small>£12, done while you wait.</small></span></label>
+      <label class="sk-radio"><input type="radio" name="fix" value="service"><span>A full service<small>£55, ready the next day.</small></span></label>
+    </div>
+  </fieldset>
+  <fieldset data-step="You">
+    <legend>Who is it for?</legend>
+    <div class="sk-field"><label for="wn">Your name</label><input class="sk-input" id="wn" autocomplete="name" required data-sk-msg="Add your name, so we can label the bike."></div>
+    <div class="sk-field"><label for="wp">Phone</label><input class="sk-input" id="wp" type="tel" autocomplete="tel" required data-sk-msg="Add a phone number. We text you when it's ready."></div>
+  </fieldset>
+  <fieldset data-step="Check" data-sk-review><legend>Check and book</legend></fieldset>
+  <div class="sk-wizard-done" hidden>
+    <span class="sk-spot" data-size="l" data-sk-draw="check"></span>
+    <h3 class="sk-h3">Booked.</h3>
+    <p class="sk-small">Bring the bike in any morning this week. We'll text you when it's ready.</p>
+    <button type="button" class="sk-btn" data-sk-quiet data-sk-again>Change the booking</button>
+  </div>
+</form>
+</body>
+</html>
