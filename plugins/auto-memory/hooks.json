@@ -1,0 +1,11 @@
+{
+  "auto-memory": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node ./mcp/hook.mjs --antigravity",
+        "timeout": 10
+      }
+    ]
+  }
+}

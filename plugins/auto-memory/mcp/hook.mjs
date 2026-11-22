@@ -7796,6 +7796,173 @@ function hasCheck(checks, id) {
   return checks.some((check) => check.annotations?.representation?.id === id || check._tag === "FilterGroup" && hasCheck(check.checks, id));
 }
 var number2 = /* @__PURE__ */ new Number4;
+var Arrays = class extends ASTNodeImpl {
+  _tag = "Arrays";
+  isMutable;
+  elements;
+  rest;
+  encodingChecks;
+  constructor(isMutable, elements, rest, annotations, checks, encoding, context, encodingChecks) {
+    super(annotations, checks, encoding, context);
+    this.isMutable = isMutable;
+    this.elements = elements;
+    this.rest = rest;
+    this.encodingChecks = encodingChecks;
+    let hasOptional = false;
+    for (let i = 0;i < elements.length; i++) {
+      if (isOptional(elements[i])) {
+        hasOptional = true;
+      } else if (hasOptional) {
+        throw new Error("A required element cannot follow an optional element. ts(1257)");
+      }
+    }
+    if (hasOptional && rest.length > 1) {
+      throw new Error("A required element cannot follow an optional element. ts(1257)");
+    }
+    for (let i = 1;i < rest.length; i++) {
+      if (isOptional(rest[i])) {
+        throw new Error("An optional element cannot follow a rest element. ts(1266)");
+      }
+    }
+  }
+  getParser(compile, compileField = compile) {
+    const ast = this;
+    let elements;
+    let rest;
+    const elementLen = ast.elements.length;
+    const tailLen = Math.max(0, ast.rest.length - 1);
+    function getParser(tailThreshold, index) {
+      if (index < elementLen) {
+        return elements[index];
+      } else if (index >= tailThreshold) {
+        return rest[index - tailThreshold + 1];
+      }
+      return rest[0];
+    }
+    const finish = (state) => {
+      const {
+        input,
+        len,
+        options
+      } = state;
+      if (ast.rest.length === 0 && len > elementLen) {
+        for (let i = elementLen;i < len; i++) {
+          const unexpected = new UnexpectedKey(ast, input[i], options);
+          const issue = new Pointer([i], unexpected);
+          if (options.errors === "all") {
+            if (state.issues)
+              state.issues.push(issue);
+            else
+              state.issues = [issue];
+          } else {
+            return fail7(new Composite(ast, [issue], input, options));
+          }
+        }
+      }
+      if (state.issues) {
+        return fail7(new Composite(ast, state.issues, input, options));
+      }
+      return succeed8(state.output);
+    };
+    const parse = (input, options) => {
+      const len = input.length;
+      const state = {
+        ast,
+        getParser,
+        input,
+        len,
+        tailThreshold: Math.max(elementLen, len - tailLen),
+        output: [],
+        issues: undefined,
+        options
+      };
+      const end = ast.rest.length === 0 ? elementLen : Math.max(len, elementLen + tailLen);
+      const concurrency = options.concurrency === undefined ? 1 : resolveConcurrency(options.concurrency);
+      const eff = concurrency === 1 ? parseArray(state, input, 0, end) : parseArrayConcurrent(state, input, {
+        concurrency,
+        end
+      });
+      if (!eff)
+        return finish(state);
+      if (effectIsExit(eff))
+        return flatMapEager2(eff, () => finish(state));
+      let first = true;
+      return suspend2(() => {
+        if (!first)
+          return parse(input, options);
+        first = false;
+        return flatMap3(eff, () => finish(state));
+      });
+    };
+    return (input, options) => {
+      if (input === missing)
+        return missingExit;
+      try {
+        if (!Array.isArray(input)) {
+          return fail7(new InvalidType(ast, input, options));
+        }
+        if (!elements) {
+          elements = ast.elements.map((ast) => ({
+            ast,
+            parser: compileField(ast)
+          }));
+          rest = ast.rest.map((ast) => ({
+            ast,
+            parser: compileField(ast)
+          }));
+        }
+        return parse(input, options);
+      } catch (error) {
+        return die3(error);
+      }
+    };
+  }
+  _rebuild(recur, checks, encodingChecks) {
+    const elements = mapOrSame(this.elements, recur);
+    const rest = mapOrSame(this.rest, recur);
+    return elements === this.elements && rest === this.rest && checks === this.checks && encodingChecks === this.encodingChecks ? this : new Arrays(this.isMutable, elements, rest, this.annotations, checks, undefined, this.context, encodingChecks);
+  }
+  recur(recur) {
+    return this._rebuild(recur, this.checks, this.encodingChecks);
+  }
+  flip(recur) {
+    return this._rebuild(recur, this.encodingChecks, this.checks);
+  }
+  getExpected() {
+    return "array";
+  }
+};
+function stepArray(s, item, exit, i) {
+  if (exit._tag === "Failure") {
+    return wrapPropertyKeyIssue(s, s.ast, i, exit);
+  }
+  const value = isSameExit(exit) ? item : exit[args];
+  if (value !== missing) {
+    s.output[i] = value;
+  } else {
+    const p = s.getParser(s.tailThreshold, i);
+    if (isOptional(p.ast))
+      return;
+    const issue = new Pointer([i], new MissingKey(p.ast.context?.annotations));
+    if (s.options.errors === "all") {
+      if (s.issues)
+        s.issues.push(issue);
+      else
+        s.issues = [issue];
+    } else {
+      return fail4(new Composite(s.ast, [issue], s.input, s.options));
+    }
+  }
+}
+var parseArrayOptions = {
+  onItem(s, item, i) {
+    const value = i < s.len ? item : missing;
+    return s.getParser(s.tailThreshold, i).parser(value, s.options);
+  },
+  step: stepArray
+};
+var parseArray = /* @__PURE__ */ iterateEager()(parseArrayOptions);
+var parseArrayConcurrent = /* @__PURE__ */ iterateConcurrent()(parseArrayOptions);
 var wrapPropertyKeyIssue = (s, ast, key, exit) => {
   if (exit.cause.reasons.length === 0) {
     return exit;
@@ -11600,6 +11767,9 @@ function Record(key, value) {
     value
   });
 }
+var ArraySchema = /* @__PURE__ */ lambda((schema) => make22(new Arrays(false, [], [schema.ast]), {
+  value: schema
+}));
 function makeUnion(ast, members) {
   return make22(ast, {
     members,
@@ -12435,10 +12605,11 @@ function memoryRoot(env, home, paths = defaultPath) {
 
 class MemoryConfig extends Service()("auto-memory/MemoryConfig") {
   static make(env, home, paths = defaultPath) {
+    const pwd = env.PWD && paths.isAbsolute(env.PWD) ? env.PWD : env.PLUGIN_ROOT && paths.resolve(process.cwd()) !== paths.resolve(env.PLUGIN_ROOT) ? process.cwd() : null;
     return MemoryConfig.of({
       home,
       root: memoryRoot(env, home, paths),
-      pwd: env.PWD && paths.isAbsolute(env.PWD) ? env.PWD : null,
+      pwd,
       env
     });
   }
@@ -12898,24 +13069,35 @@ var sessionStart = fn2("sessionStart")(function* (cwd, session = null) {
   const index = yield* fs.readFileString(paths.join(dir, INDEX)).pipe(orElseSucceed2(() => null));
   return { hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: sessionContext(dir, index) } };
 });
-var HookInput = fromJsonString2(Struct({ cwd: optional2(String6), session_id: optional2(String6) }));
+var ANTIGRAVITY_FLAG = "--antigravity";
+var HookInput = fromJsonString2(Struct({
+  cwd: optional2(String6),
+  session_id: optional2(String6),
+  conversationId: optional2(String6),
+  workspacePaths: optional2(ArraySchema(String6))
+}));
 var decodeInput = decodeUnknownOption2(HookInput);
-var run3 = fn2("run")(function* (input, codex = false) {
+var run3 = fn2("run")(function* (input, codex = false, antigravity = false) {
   const config = yield* MemoryConfig;
   const paths = yield* Path;
-  if (!codex && inClaudeCode(config.env))
+  if (!codex && !antigravity && inClaudeCode(config.env))
     return claudeCodeCheck(config.env, config.root, paths);
   const decoded = getOrUndefined(decodeInput(input));
-  return yield* sessionStart(decoded?.cwd || process.cwd(), safeSessionId(decoded?.session_id));
+  const cwd = decoded?.cwd || decoded?.workspacePaths?.[0] || process.cwd();
+  const session = safeSessionId(decoded?.session_id ?? decoded?.conversationId);
+  const result = yield* sessionStart(cwd, session);
+  if (!antigravity || result === null)
+    return result;
+  return { injectSteps: [{ systemMessage: { systemMessage: result.hookSpecificOutput.additionalContext } }] };
 });
 var Services = Store.layer.pipe(provideMerge(MemoryConfig.layer), provideMerge(layer10));
 var say = (command) => command.pipe(flatMap3((text) => log(text)), catch_2((error2) => error(`auto-memory: ${error2.message}`).pipe(andThen2(sync2(() => process.exitCode = 1)))));
 if (process.argv[1]?.endsWith("hook.mjs")) {
   const [word] = process.argv.slice(2);
-  const main = word === "install" ? say(install(process.argv[1])) : word === "uninstall" ? say(uninstall) : word !== undefined && word !== USER_HOOK_FLAG ? say(fail7(new SetupError({ message: `"${word}" is not a command. Use install or uninstall.` }))) : gen2(function* () {
+  const main = word === "install" ? say(install(process.argv[1])) : word === "uninstall" ? say(uninstall) : word !== undefined && word !== USER_HOOK_FLAG && word !== ANTIGRAVITY_FLAG ? say(fail7(new SetupError({ message: `"${word}" is not a command. Use install or uninstall.` }))) : gen2(function* () {
     const stdio = yield* Stdio;
     const input = yield* stdio.stdin.pipe(decodeText2(), mkString, orElseSucceed2(() => ""));
-    const output = yield* run3(input, word === USER_HOOK_FLAG);
+    const output = yield* run3(input, word === USER_HOOK_FLAG, word === ANTIGRAVITY_FLAG);
     if (output)
       yield* log(yield* encodeOutput(output));
   });

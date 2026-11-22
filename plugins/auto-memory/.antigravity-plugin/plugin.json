@@ -1,0 +1,9 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "auto-memory",
+  "description": "Claude Code's auto memory for Codex only: the same memory prompt, MEMORY.md index, and memory_list, memory_read and memory_write tools, over one store in ~/.agents/memory that Claude Code's own auto memory can share. Its dream skill, in Claude Code too, checks the memory against recent sessions of both and fixes it, one Git commit at a time. From Anthropic's Claude Code and Claude cookbooks.",
+  "author": {
+    "name": "Anthropic"
+  },
+  "skills": ["./codex-skills"]
+}

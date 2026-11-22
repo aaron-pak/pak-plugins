@@ -26735,10 +26735,11 @@ function memoryRoot(env, home, paths = defaultPath) {
 
 class MemoryConfig extends Service()("auto-memory/MemoryConfig") {
   static make(env, home, paths = defaultPath) {
+    const pwd = env.PWD && paths.isAbsolute(env.PWD) ? env.PWD : env.PLUGIN_ROOT && paths.resolve(process.cwd()) !== paths.resolve(env.PLUGIN_ROOT) ? process.cwd() : null;
     return MemoryConfig.of({
       home,
       root: memoryRoot(env, home, paths),
-      pwd: env.PWD && paths.isAbsolute(env.PWD) ? env.PWD : null,
+      pwd,
       env
     });
   }

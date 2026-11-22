@@ -1,0 +1,9 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "artifact-design",
+  "description": "HTML artifacts in the Sketchbook design system: Artifact and ArtifactCheck MCP tools that publish pages (reports, explainers, plans, dashboards, tools, decks) on this machine and check them, with skills for pages, diagrams and charts. Built on Anthropic's Claude Code artifact skills.",
+  "author": {
+    "name": "Aaron Pak"
+  },
+  "skills": ["./codex-skills"]
+}
