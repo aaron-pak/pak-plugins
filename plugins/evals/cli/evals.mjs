@@ -11585,6 +11585,9 @@ function manifestOf(dir) {
 function isPlugin(dir) {
   return manifestOf(dir) !== undefined || existsSync16(join16(dir, "skills")) || existsSync16(join16(dir, "hooks", "hooks.json"));
 }
+function isNamedPlugin(dir) {
+  return isPlugin(dir) || !isSkill(dir) && existsSync16(join16(dir, ".mcp.json"));
+}
 function isSkill(dir) {
   return existsSync16(join16(dir, "SKILL.md"));
 }
@@ -11653,11 +11656,11 @@ function casePluginDirs(c, targetPlugin) {
       const dir = inCase(c, p);
       if (!existsSync16(dir))
         throw new CaseError(`case "${c.name}": plugins: ${p} does not exist`);
-      if (isPlugin(dir))
+      if (isNamedPlugin(dir))
         return dir;
       if (isSkill(dir))
         return wrapSkill(dir);
-      throw new CaseError(`case "${c.name}": plugins: ${p} is neither a plugin (a manifest or skills/) nor a skill (SKILL.md)`);
+      throw new CaseError(`case "${c.name}": plugins: ${p} is neither a plugin (a manifest, skills/, hooks or .mcp.json) nor a skill (SKILL.md)`);
     });
   }
   return targetPlugin ? [targetPlugin] : [];
@@ -11970,9 +11973,9 @@ function mockServerPath() {
   const here = dirname9(fileURLToPath(import.meta.url));
   for (const p of [
     join19(here, "mock-server.mjs"),
-    join19(here, "..", "..", "bin", "mock-server.mjs"),
-    join19(here, "..", "bin", "mock-server.mjs"),
-    join19(here, "..", "..", "..", "..", "plugins", "evals", "bin", "mock-server.mjs")
+    join19(here, "..", "..", "cli", "mock-server.mjs"),
+    join19(here, "..", "cli", "mock-server.mjs"),
+    join19(here, "..", "..", "..", "..", "plugins", "evals", "cli", "mock-server.mjs")
   ]) {
     if (existsSync18(p))
       return p;
@@ -12571,11 +12574,11 @@ function loadSuite(target, evalDirFlag, caseGlobs, tags) {
 function pluginAt(dir) {
   if (!existsSync18(dir))
     throw new CaseError(`plugins: ${dir} does not exist`);
-  if (isPlugin(dir))
+  if (isNamedPlugin(dir))
     return dir;
   if (isSkill(dir))
     return wrapSkill(dir);
-  throw new CaseError(`plugins: ${dir} is neither a plugin (a manifest or skills/) nor a skill (SKILL.md)`);
+  throw new CaseError(`plugins: ${dir} is neither a plugin (a manifest, skills/, hooks or .mcp.json) nor a skill (SKILL.md)`);
 }
 function defaultOutputDir(root, evalDir, startedAt) {
   const stamp = startedAt.replace(/[:.]/g, "-");
@@ -16816,8 +16819,8 @@ function init(target, options) {
     if (p && !existsSync29(p))
       throw new Error(`${p} doesn't exist`);
   for (const p of plugins)
-    if (!isPlugin(resolve12(p)) && !isSkill(resolve12(p)))
-      throw new Error(`${p} is neither a plugin (a manifest or skills/) nor a skill (SKILL.md)`);
+    if (!isNamedPlugin(resolve12(p)) && !isSkill(resolve12(p)))
+      throw new Error(`${p} is neither a plugin (a manifest, skills/, hooks or .mcp.json) nor a skill (SKILL.md)`);
   const under = [];
   if (plugins.length)
     under.push(`    plugins: [${plugins.map((p) => JSON.stringify(from(p))).join(", ")}]`);

@@ -7,7 +7,7 @@ description: Run an existing eval suite and say what the result means. Get a sco
 
 A suite exists; the user wants an answer from it. The answer is a difference with an interval and a verdict, or a score with an interval, plus what it rests on. It is never a bare number.
 
-Everything goes through this plugin's `bin/evals` (`"${CLAUDE_PLUGIN_ROOT}/bin/evals"` in Claude Code; elsewhere, two folders up from this skill's folder), called `$E` below. `$E help <command>` lists a command's options. Runs cost money on the user's account; the other commands are free.
+Everything goes through this plugin's `cli/evals` (`"${CLAUDE_PLUGIN_ROOT}/cli/evals"` in Claude Code; elsewhere, two folders up from this skill's folder), called `$E` below. `$E help <command>` lists a command's options. Runs cost money on the user's account; the other commands are free.
 
 ## First: can the suite answer?
 

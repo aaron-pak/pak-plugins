@@ -1,3 +1,0 @@
-#!/bin/sh
-# The evals helper. Its code is bin/evals.mjs, bundled from src/ by scripts/build.ts.
-exec node "$(dirname "$0")/evals.mjs" "$@"

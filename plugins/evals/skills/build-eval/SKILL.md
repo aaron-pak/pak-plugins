@@ -7,7 +7,7 @@ description: Build an eval suite for anything that shapes what an agent does (a 
 
 The product is a suite the user trusts enough to decide with, and one kept result to measure changes against. A suite that runs but that nobody believes is worth nothing, so the work is mostly choosing what to ask, reading what comes back, and getting the user's agreement.
 
-Everything goes through this plugin's `bin/evals` (`"${CLAUDE_PLUGIN_ROOT}/bin/evals"` in Claude Code; elsewhere, two folders up from this skill's folder), called `$E` below. One command drives the build:
+Everything goes through this plugin's `cli/evals` (`"${CLAUDE_PLUGIN_ROOT}/cli/evals"` in Claude Code; elsewhere, two folders up from this skill's folder), called `$E` below. One command drives the build:
 
 ```sh
 $E status <suite>     # what is done, what isn't, and the one thing to do next, with its command

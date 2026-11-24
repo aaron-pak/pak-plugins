@@ -7,7 +7,7 @@ description: Improve a plugin, skill, MCP server, instruction file or prompt aga
 
 Run the suite, read the failures, change one thing, run again, and keep the change only if it helps cases nobody tuned on. The loop is simple; the discipline is what makes the result true: read transcripts rather than summary numbers, know which change caused which effect, keep a record, and never tune on the cases you report. **The result is the difference on the test split against the baseline**, confirmed on fresh runs. Improvement on train is the process.
 
-Everything goes through this plugin's `bin/evals` (`"${CLAUDE_PLUGIN_ROOT}/bin/evals"` in Claude Code; elsewhere, two folders up from this skill's folder), called `$E` below; `$E help <command>` lists options. `${CLAUDE_PLUGIN_ROOT}/docs/principles.md` has the reasoning behind each rule here.
+Everything goes through this plugin's `cli/evals` (`"${CLAUDE_PLUGIN_ROOT}/cli/evals"` in Claude Code; elsewhere, two folders up from this skill's folder), called `$E` below; `$E help <command>` lists options. `${CLAUDE_PLUGIN_ROOT}/docs/principles.md` has the reasoning behind each rule here.
 
 ## Before round 1
 

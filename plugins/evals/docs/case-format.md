@@ -1,6 +1,6 @@
 # Cases, suites and results
 
-The file formats and what a run does with them. Everything goes through one command, `bin/evals` at this plugin's root (`${CLAUDE_PLUGIN_ROOT}/bin/evals` in Claude Code; elsewhere, two folders up from a skill's folder). `evals status <suite>` says what a suite needs next, `evals help` lays the commands out, and `evals help <command>` lists a command's options, so this page doesn't repeat them. `evals run` reads the same case files as Claude Code's `claude plugin eval` and adds to them; only `run`, `grade` and `judge` call a model.
+The file formats and what a run does with them. Everything goes through one command, `cli/evals` at this plugin's root (`${CLAUDE_PLUGIN_ROOT}/cli/evals` in Claude Code; elsewhere, two folders up from a skill's folder). `evals status <suite>` says what a suite needs next, `evals help` lays the commands out, and `evals help <command>` lists a command's options, so this page doesn't repeat them. `evals run` reads the same case files as Claude Code's `claude plugin eval` and adds to them; only `run`, `grade` and `judge` call a model.
 
 ## Where things live
 
@@ -143,7 +143,7 @@ A user who hands a decision over ("you choose what to test", "your call on the b
 ## A run
 
 ```sh
-E="${CLAUDE_PLUGIN_ROOT}/bin/evals"
+E="${CLAUDE_PLUGIN_ROOT}/cli/evals"
 $E run <suite or plugin> [--harness claude|codex] [--runs 3] [--ablation with-without|none] \
   [--case <glob>]... [--tag <t>]... [--allow-tools Write --allow-tools "Bash(npm test *)"] [--scaffold] \
   [--env KEY=value]... \
@@ -200,7 +200,7 @@ Tool names: Claude Code names a plugin's MCP tool `mcp__plugin_<plugin>_<server>
 
 ## More on some commands
 
-`evals help <command>` has each command's options (`$E` below is `bin/evals`). This is what the options don't say.
+`evals help <command>` has each command's options (`$E` below is `cli/evals`). This is what the options don't say.
 
 **Sessions** (read from `$CLAUDE_CONFIG_DIR/projects`, default `~/.claude/projects`):
 
